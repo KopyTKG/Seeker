@@ -7,10 +7,10 @@ import (
 	"strings"
 	"time"
 
-	"github.com/BurntSushi/toml"
 	discordwebhook "github.com/bensch777/discord-webhook-golang"
 	"github.com/kopytkg/golog/v2"
 	"github.com/ungerik/go-rss"
+	"thekrew.app/cve-discord/internal/config"
 )
 
 type Config struct {
@@ -101,20 +101,14 @@ func main() {
 	logger := golog.Named("RSS")
 	logger.WithFields(golog.Fields{"version": VERSION}).Info("RSS running")
 
-	data, err := os.ReadFile(CONFIG_SRC)
+	conf, err := config.LoadFromFile(CONFIG_SRC)
 	if err != nil {
-		logger.Errorf("failed to read config file: %s\n", err)
+		golog.Error(err)
 		os.Exit(1)
 	}
 
-	var config Config
-
-	if err := toml.Unmarshal(data, &config); err != nil {
-		logger.Errorf("failed to parse TOML: %s", err)
-	}
-
 	ctx := context.Background()
-	resp, err := rss.Read(ctx, config.RSSFeed, false)
+	resp, err := rss.Read(ctx, conf.RSSFeed, false)
 	if err != nil {
 		logger.Errorf("failed to download RSS Feed: %s", err)
 		os.Exit(1)
@@ -169,14 +163,14 @@ func main() {
 
 	}
 
-	err = sendEmbed(&config, CVEs, colors)
+	err = sendEmbed(conf, CVEs, colors)
 	if err != nil {
 		logger.Errorf("Err: %s", err)
 		os.Exit(1)
 	}
 }
 
-func sendEmbed(cfg *Config, cve []CVE, colors map[string]int) error {
+func sendEmbed(cfg *config.Config, cve []CVE, colors map[string]int) error {
 	logger := golog.Named("RSS")
 	const icon = "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/arch-linux.png"
 
