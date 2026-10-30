@@ -1,0 +1,10 @@
+github.com/BurntSushi/toml v1.6.0 h1:dRaEfpa2VI55EwlIW72hMRHdWouJeRF7TPYhI+AUQjk=
+github.com/BurntSushi/toml v1.6.0/go.mod h1:ukJfTF/6rtPPRCnwkur4qwRxa8vTRFBF0uk2lLoLwho=
+github.com/bensch777/discord-webhook-golang v0.0.6 h1:91BMU6vKgymAMfRwtXPMUrKX+SUoPPHTDJHTFA/1Kgk=
+github.com/bensch777/discord-webhook-golang v0.0.6/go.mod h1:GcIorMZAZaHZyQJkjNoYKvZ6VpZo8XLib/eD51xN7Is=
+github.com/kopytkg/golog/v2 v2.0.0 h1:2qRzb6c0Wl4CY/b/UQKtSG8IOtOlysGrMT3RCDjz4hQ=
+github.com/kopytkg/golog/v2 v2.0.0/go.mod h1:sas3L4+PBnCZEUfklK1GQn5unaPpr2Gdjp0PpbWWRIw=
+github.com/paulrosania/go-charset v0.0.0-20190326053356-55c9d7a5834c h1:P6XGcuPTigoHf4TSu+3D/7QOQ1MbL6alNwrGhcW7sKw=
+github.com/paulrosania/go-charset v0.0.0-20190326053356-55c9d7a5834c/go.mod h1:YnNlZP7l4MhyGQ4CBRwv6ohZTPrUJJZtEv4ZgADkbs4=
+github.com/ungerik/go-rss v0.0.0-20261007063742-db3567cb87b6 h1:vKrnOBqlhNMIckZgiwOJARzTIGdsG5iMMsx4RpkuAws=
+github.com/ungerik/go-rss v0.0.0-20261007063742-db3567cb87b6/go.mod h1:Fcu2Zvi+j9+LW5VtnBL93YES8aXBk1TGLlcU3Ag+rYs=
