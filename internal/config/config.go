@@ -19,6 +19,7 @@ type Config struct {
 	Webhook     string      `toml:"Webhook"`
 	RSSFeed     string      `toml:"RSSFeed"`
 	ATOMFeed    string      `toml:"ATOMFeed"`
+	UserConfig  UserConfig  `toml:"User"`
 	ColorConfig ColorConfig `toml:"Colors"`
 }
 type ColorConfig struct {
@@ -26,11 +27,20 @@ type ColorConfig struct {
 	HighColor     string `toml:"HighColor"`
 }
 
+type UserConfig struct {
+	Username  string `toml:"Username"`
+	AvatarURL string `toml:"AvatarURL"`
+}
+
 func DefaultConfig() *Config {
 	return &Config{
 		Webhook:  "",
 		RSSFeed:  "",
 		ATOMFeed: "",
+		UserConfig: UserConfig{
+			Username:  "❤️❤️UwU Archie UwU ❤️❤️",
+			AvatarURL: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/arch-linux.png",
+		},
 		ColorConfig: ColorConfig{
 			CriticalColor: "FA1414",
 			HighColor:     "FAEF14",
