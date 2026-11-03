@@ -1,9 +1,11 @@
 package main
 
 import (
+	"context"
 	"os"
 
 	"github.com/kopytkg/golog/v2"
+	"thekrew.app/cve-discord/internal/cache/valkey"
 	"thekrew.app/cve-discord/internal/config"
 	"thekrew.app/cve-discord/internal/rss"
 	"thekrew.app/cve-discord/internal/webhook"
@@ -31,7 +33,30 @@ func main() {
 		os.Exit(1)
 	}
 
-	err = webhook.SendEmbed(conf, CVEs)
+	vk, err := valkey.New(conf.ValkeyIP)
+	if err != nil {
+		logger.Errorf("%f\n", err)
+		os.Exit(1)
+	}
+
+	ctx := context.Background()
+	var clean []rss.CVE
+	for _, cve := range CVEs {
+		exists, err := vk.Exists(ctx, cve.NO)
+		if err != nil {
+			golog.Errorf("%s", err)
+		}
+		if !exists {
+			logger.Debugf("NO [%s] | Title [%s]", cve.NO, cve.Title)
+			err := vk.Set(ctx, cve.NO, cve.ToString())
+			if err != nil {
+				golog.Errorf("%s", err)
+			}
+			clean = append(clean, cve)
+		}
+	}
+
+	err = webhook.SendEmbed(conf, clean)
 	if err != nil {
 		logger.Errorf("Err: %s", err)
 		os.Exit(1)

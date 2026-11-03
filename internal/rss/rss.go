@@ -18,6 +18,10 @@ type CVE struct {
 	Color       string
 }
 
+func (cv *CVE) ToString() string {
+	return fmt.Sprintf("%s|%s|%s|%s|%s|%s|%s", cv.Link, cv.NO, cv.Title, cv.Description, cv.Severity, cv.PublishedAt, cv.Color)
+}
+
 func stringLength(str string) int {
 	var length int
 	for range str {

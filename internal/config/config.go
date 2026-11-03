@@ -19,6 +19,7 @@ type Config struct {
 	Webhook     string      `toml:"Webhook"`
 	RSSFeed     string      `toml:"RSSFeed"`
 	ATOMFeed    string      `toml:"ATOMFeed"`
+	ValkeyIP    string      `toml:"ValkeyIP"`
 	UserConfig  UserConfig  `toml:"User"`
 	ColorConfig ColorConfig `toml:"Colors"`
 }
@@ -37,6 +38,7 @@ func DefaultConfig() *Config {
 		Webhook:  "",
 		RSSFeed:  "",
 		ATOMFeed: "",
+		ValkeyIP: "",
 		UserConfig: UserConfig{
 			Username:  "❤️❤️UwU Archie UwU ❤️❤️",
 			AvatarURL: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/arch-linux.png",
@@ -60,6 +62,12 @@ func LoadFromFile(path string) (*Config, error) {
 		config.Save(path)
 		return nil, fmt.Errorf("Failed to parse TOML: %s", err)
 	}
+
+	if config.ValkeyIP == "" {
+		config.Save(path)
+		return nil, fmt.Errorf("Empty config detected, please edit config at %s", path)
+	}
+
 	return config, nil
 }
 
