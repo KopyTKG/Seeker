@@ -12,7 +12,7 @@ import (
 )
 
 const (
-	CONFIG_SRC = "config.toml"
+	CONFIG_SRC = "/root/config.toml"
 	VERSION    = "0.0.1"
 )
 
@@ -38,6 +38,7 @@ func main() {
 		logger.Errorf("%f\n", err)
 		os.Exit(1)
 	}
+	defer vk.Close()
 
 	ctx := context.Background()
 	var clean []rss.CVE
