@@ -5,10 +5,10 @@ import (
 	"os"
 
 	"github.com/kopytkg/golog/v2"
-	"thekrew.app/cve-discord/internal/cache/valkey"
-	"thekrew.app/cve-discord/internal/config"
-	"thekrew.app/cve-discord/internal/rss"
-	"thekrew.app/cve-discord/internal/webhook"
+	"thekrew.app/seeker/internal/cache/valkey"
+	"thekrew.app/seeker/internal/config"
+	"thekrew.app/seeker/internal/rss"
+	"thekrew.app/seeker/internal/webhook"
 )
 
 const (

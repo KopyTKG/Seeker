@@ -1,4 +1,4 @@
-module thekrew.app/cve-discord
+module thekrew.app/seeker
 
 go 1.26.5
 
