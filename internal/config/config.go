@@ -7,6 +7,7 @@ import (
 	"sync"
 
 	"github.com/BurntSushi/toml"
+	"github.com/kopytkg/golog/v2"
 )
 
 type Manager struct {
@@ -53,27 +54,26 @@ func DefaultConfig() *Config {
 func LoadFromFile(path string) (*Config, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
-		return nil, fmt.Errorf("Failed to read config file: %s\n", err)
+		golog.APPWarnf("Attempting to create config file at %s", path)
+		return nil, fmt.Errorf("Create cfg file ")
 	}
 
 	config := DefaultConfig()
 
 	if err := toml.Unmarshal(data, config); err != nil {
-		config.Save(path)
 		return nil, fmt.Errorf("Failed to parse TOML: %s", err)
 	}
 
 	if config.ValkeyIP == "" {
-		config.Save(path)
 		return nil, fmt.Errorf("Empty config detected, please edit config at %s", path)
 	}
 
 	return config, nil
 }
 
-func (c *Config) Save(path string) error {
+func SaveDefault(path string) error {
 	// Marshal to TOML
-	data, err := toml.Marshal(c)
+	data, err := toml.Marshal(DefaultConfig())
 	if err != nil {
 		return fmt.Errorf("failed to marshal TOML: %w", err)
 	}

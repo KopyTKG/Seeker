@@ -21,9 +21,17 @@ func main() {
 	logger := golog.Named("RSS")
 	logger.WithFields(golog.Fields{"version": VERSION}).Info("RSS running")
 
+	args := os.Args
+	for i, arg := range args {
+		logger.Debugf("(%d) %s", i, arg)
+	}
+	logger.Debug("Post arg check")
+
 	conf, err := config.LoadFromFile(CONFIG_SRC)
 	if err != nil {
-		golog.Error(err)
+		if err = config.SaveDefault(CONFIG_SRC); err != nil {
+			logger.Errorf("%s", err)
+		}
 		os.Exit(1)
 	}
 
@@ -45,13 +53,13 @@ func main() {
 	for _, cve := range CVEs {
 		exists, err := vk.Exists(ctx, cve.NO)
 		if err != nil {
-			golog.Errorf("%s", err)
+			logger.Errorf("%s", err)
 		}
 		if !exists {
 			logger.Debugf("NO [%s] | Title [%s]", cve.NO, cve.Title)
 			err := vk.Set(ctx, cve.NO, cve.ToString())
 			if err != nil {
-				golog.Errorf("%s", err)
+				logger.Errorf("%s", err)
 			}
 			clean = append(clean, cve)
 		}
