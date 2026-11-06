@@ -6,7 +6,7 @@ import (
 
 	"github.com/valkey-io/valkey-go"
 	vk "github.com/valkey-io/valkey-go"
-	"thekrew.app/cve-discord/internal/cache"
+	"thekrew.app/seeker/internal/cache"
 )
 
 type Client struct {

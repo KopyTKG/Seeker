@@ -17,36 +17,32 @@ type Manager struct {
 }
 
 type Config struct {
-	Webhook     string      `toml:"Webhook"`
-	RSSFeed     string      `toml:"RSSFeed"`
-	ATOMFeed    string      `toml:"ATOMFeed"`
-	ValkeyIP    string      `toml:"ValkeyIP"`
-	UserConfig  UserConfig  `toml:"User"`
-	ColorConfig ColorConfig `toml:"Colors"`
+	Token      string     `toml:"Token"`
+	BaseUri    string     `toml:"BaseUri"`
+	ValkeyIP   string     `toml:"ValkeyIP"`
+	Cron       string     `toml:"Cron"`
+	Severities Severities `toml:"Severities"`
 }
-type ColorConfig struct {
-	CriticalColor string `toml:"CriticalColor"`
-	HighColor     string `toml:"HighColor"`
-}
-
-type UserConfig struct {
-	Username  string `toml:"Username"`
-	AvatarURL string `toml:"AvatarURL"`
+type Severities struct {
+	Critical string `toml:"CRITICAL"`
+	High     string `toml:"HIGH"`
+	Medium   string `toml:"MEDUIM"`
+	Low      string `toml:"LOW"`
+	None     string `toml:"NONE"`
 }
 
 func DefaultConfig() *Config {
 	return &Config{
-		Webhook:  "",
-		RSSFeed:  "",
-		ATOMFeed: "",
+		Token:    "",
+		BaseUri:  "",
 		ValkeyIP: "",
-		UserConfig: UserConfig{
-			Username:  "❤️❤️UwU Archie UwU ❤️❤️",
-			AvatarURL: "https://cdn.jsdelivr.net/gh/homarr-labs/dashboard-icons/png/arch-linux.png",
-		},
-		ColorConfig: ColorConfig{
-			CriticalColor: "FA1414",
-			HighColor:     "FAEF14",
+		Cron:     "*/30 * * * *",
+		Severities: Severities{
+			Critical: "FF2929",
+			High:     "F79511",
+			Medium:   "FAE95C",
+			Low:      "C7FFFB",
+			None:     "CCCCCC",
 		},
 	}
 }
