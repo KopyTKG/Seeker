@@ -4,7 +4,6 @@ import (
 	"context"
 	"fmt"
 
-	"github.com/valkey-io/valkey-go"
 	vk "github.com/valkey-io/valkey-go"
 	"thekrew.app/seeker/internal/cache"
 )
@@ -14,7 +13,7 @@ type Client struct {
 }
 
 func New(address string) (*Client, error) {
-	client, err := valkey.NewClient(valkey.ClientOption{InitAddress: []string{address}})
+	client, err := vk.NewClient(vk.ClientOption{InitAddress: []string{address}})
 	if err != nil {
 		return nil, fmt.Errorf("Error during valkey initialization: %s", err)
 	}
