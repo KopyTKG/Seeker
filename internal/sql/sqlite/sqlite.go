@@ -76,18 +76,19 @@ INSERT INTO Terms (term) VALUES (?)
 }
 
 func (s *SQLite) GetTerms() ([]isql.Term, error) {
-	rows, err := s.c.Query("SELECT (Id, term) FROM Terms")
+	rows, err := s.c.Query("SELECT Id, term FROM Terms")
 	if err != nil {
-		return []isql.Term{}, err
+		return nil, err
 	}
+	defer rows.Close()
 
-	var Terms []isql.Term
-
+	var terms []isql.Term
 	for rows.Next() {
-		var r isql.Term
-		rows.Scan(r.Id, r.Key)
-		Terms = append(Terms, r)
+		var t isql.Term
+		if err := rows.Scan(&t.Id, &t.Key); err != nil {
+			return nil, err
+		}
+		terms = append(terms, t)
 	}
-
-	return Terms, nil
+	return terms, rows.Err()
 }

@@ -14,12 +14,12 @@ import (
 )
 
 type Bot struct {
-	vk      *valkey.Client
-	cfg     *config.Config
-	sql     *sqlite.SQLite
-	logger  *golog.Logger
-	session *discordgo.Session
-	cron    *cron.Cron
+	Vk      *valkey.Client
+	Cfg     *config.Config
+	Sql     *sqlite.SQLite
+	Logger  *golog.Logger
+	Session *discordgo.Session
+	Cron    *cron.Cron
 }
 
 func NewBot(path string, version string) *Bot {
@@ -47,7 +47,6 @@ func NewBot(path string, version string) *Bot {
 		logger.Errorf("%f\n", err)
 		os.Exit(1)
 	}
-	defer vk.Close()
 
 	/*
 		=== SQLite memory ===
@@ -57,7 +56,6 @@ func NewBot(path string, version string) *Bot {
 		logger.Error(err.Error())
 		os.Exit(1)
 	}
-	defer c.Close()
 
 	/*
 		=== Bot setup ===
@@ -71,41 +69,47 @@ func NewBot(path string, version string) *Bot {
 	// In this example, we only care about receiving message events.
 	session.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
 
-	return &Bot{
-		vk:      vk,
-		cfg:     conf,
-		sql:     c,
-		logger:  logger,
-		session: session,
-		cron:    cron.New(),
+	b := Bot{
+		Vk:      vk,
+		Cfg:     conf,
+		Sql:     c,
+		Logger:  logger,
+		Session: session,
+		Cron:    cron.New(),
 	}
+
+	b.AddHandler(b.messageCreate)
+
+	return &b
 }
 
 // Wrapper
-func (b *Bot) AddHandler(fn func()) {
-	b.session.AddHandler(fn)
+func (b *Bot) AddHandler(fn any) {
+	b.Session.AddHandler(fn)
 }
 
 // Cron wrapper
 func (b *Bot) AddFunc(interval string, fn func()) (cron.EntryID, error) {
-	return b.cron.AddFunc(interval, fn)
+	return b.Cron.AddFunc(interval, fn)
 }
 
 func (b *Bot) Run() {
+	defer b.Vk.Close()
+	defer b.Sql.Close()
+	defer b.Cron.Stop()
+	defer b.Session.Close()
 
 	// Open a websocket connection to Discord and begin listening.
-	err := b.session.Open()
+	err := b.Session.Open()
 	if err != nil {
-		b.logger.Errorf("error opening connection, %s", err)
+		b.Logger.Errorf("error opening connection, %s", err)
 		return
 	}
-	b.cron.Start()
+	b.Cron.Start()
 
 	// Wait here until CTRL-C or other term signal is received.
-	b.logger.Debug("Bot is now running.  Press CTRL-C to exit.")
+	b.Logger.Debug("Bot is now running.  Press CTRL-C to exit.")
 	sc := make(chan os.Signal, 1)
 	signal.Notify(sc, syscall.SIGINT, syscall.SIGTERM, os.Interrupt)
 	<-sc
-	b.cron.Stop()
-	b.session.Close()
 }
