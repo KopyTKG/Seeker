@@ -15,6 +15,7 @@ import (
 	"thekrew.app/seeker/internal/cache/valkey"
 	"thekrew.app/seeker/internal/config"
 	"thekrew.app/seeker/internal/feed"
+	"thekrew.app/seeker/internal/sql/sqlite"
 )
 
 const (
@@ -27,12 +28,18 @@ func main() {
 	logger := golog.Named("Seeker")
 	logger.WithFields(golog.Fields{"version": VERSION}).Info("RSS running")
 
+	/*
+		=== Command line args ===
+	*/
 	args := os.Args
 	for i, arg := range args {
 		logger.Debugf("(%d) %s", i, arg)
 	}
 	logger.Debug("Post arg check")
 
+	/*
+		=== Config file handeling ===
+	*/
 	conf, err := config.LoadFromFile(CONFIG_SRC)
 	if err != nil {
 		if err = config.SaveDefault(CONFIG_SRC); err != nil {
@@ -42,6 +49,9 @@ func main() {
 		os.Exit(1)
 	}
 
+	/*
+		=== Valkey cache ===
+	*/
 	vk, err := valkey.New(conf.ValkeyIP)
 	if err != nil {
 		logger.Errorf("%f\n", err)
@@ -49,14 +59,29 @@ func main() {
 	}
 	defer vk.Close()
 
-	cron := cron.New()
+	/*
+		=== SQLite memory ===
+	*/
+	c, err := sqlite.NewSQL("test.db")
+	if err != nil {
+		logger.Error(err.Error())
+		os.Exit(1)
+	}
+	defer c.Close()
 
+	/*
+		=== Bot setup ===
+	*/
 	session, err := discordgo.New("Bot " + conf.Token)
 	if err != nil {
 		logger.Errorf("error creating Discord session, %s", err)
 		return
 	}
 
+	/*
+		=== Cron setup ===
+	*/
+	cron := cron.New()
 	_, err = cron.AddFunc("*/2 * * * *", func() {
 		query, err := feed.PullFeed(conf.BaseUri + "?term=Microsoft&limit=50")
 		if err != nil {
