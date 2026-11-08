@@ -79,12 +79,14 @@ func NewBot(path string, version string) *Bot {
 	}
 
 	b.AddHandler(b.onReady)
-	b.AddHandler(b.onMessage)
 
 	var handlers = map[string]handler{
-		"ping": b.onPing,
-		"list": b.onList,
-		"add":  b.onAdd,
+		"ping":     b.onPing,
+		"list":     b.onList,
+		"add":      b.onAdd,
+		"remove":   b.onRemove,
+		"follow":   b.onFollow,
+		"unfollow": b.onUnfollow,
 	}
 
 	b.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {

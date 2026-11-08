@@ -8,6 +8,12 @@ import (
 	isql "thekrew.app/seeker/internal/sql"
 )
 
+/*
+=========================================
+* Common
+=========================================
+*/
+
 type SQLite struct {
 	c *sql.DB
 }
@@ -63,7 +69,14 @@ func (s *SQLite) Close() error {
 	return nil
 }
 
-func (s *SQLite) AddTerm(term string) error {
+/*
+=========================================
+* Term CRD no U cuz F*ck update
+=========================================
+*/
+
+// Create
+func (s *SQLite) CreateTerm(term string) error {
 	stmt, err := s.c.Prepare(`
 INSERT INTO Terms (term) VALUES (?)
 		`)
@@ -75,8 +88,9 @@ INSERT INTO Terms (term) VALUES (?)
 	return nil
 }
 
-func (s *SQLite) GetTerms() ([]isql.Term, error) {
-	rows, err := s.c.Query("SELECT Id, term FROM Terms")
+// Bulk Read
+func (s *SQLite) ReadBulkTerm() ([]isql.Term, error) {
+	rows, err := s.c.Query("SELECT * FROM Terms")
 	if err != nil {
 		return nil, err
 	}
@@ -93,18 +107,37 @@ func (s *SQLite) GetTerms() ([]isql.Term, error) {
 	return terms, rows.Err()
 }
 
-func (s *SQLite) GetTermCount() (int, error) {
-	var n int
-	if err := s.c.QueryRow("SELECT COUNT(*) FROM Terms").Scan(&n); err != nil {
-		return 0, err
+// Read
+func (s *SQLite) ReadTerm(term string) (*isql.Term, error) {
+	var t isql.Term
+	if err := s.c.QueryRow("SELECT * FROM Terms WHERE term = ?", term).Scan(&t); err != nil {
+		return nil, err
 	}
-	return n, nil
+	return &t, nil
 }
 
-// ------------------------------------
-// User
+// Delete
+func (s *SQLite) DeleteTerm(term string) error {
+	stmt, err := s.c.Prepare(`DELETE FROM Terms WHERE term = ?`)
+	if err != nil {
+		return err
+	}
 
-func (s *SQLite) AddUser(tag string) error {
+	if _, err := stmt.Exec(term); err != nil {
+		return err
+	}
+	return nil
+}
+
+/*
+=========================================
+* User CRD no U cuz F*ck update
+=========================================
+*/
+
+// Create
+func (s *SQLite) CreateUser(id string) error {
+	tag := "<@" + id + ">"
 	var n int
 	if err := s.c.QueryRow("SELECT COUNT(tag) FROM Users WHERE tag = ?", tag).Scan(&n); err != nil {
 		return err
@@ -119,4 +152,14 @@ func (s *SQLite) AddUser(tag string) error {
 		stmt.Exec(tag)
 		return nil
 	}
+}
+
+// Read
+func (s *SQLite) ReadUser(id string) (*isql.User, error) {
+	tag := "<@" + id + ">"
+	var t isql.User
+	if err := s.c.QueryRow("SELECT * FROM Users WHERE tag = ?", tag).Scan(&t.Id, &t.Tag); err != nil {
+		return nil, err
+	}
+	return &t, nil
 }

@@ -32,23 +32,10 @@ func (b *Bot) onReady(s *discordgo.Session, r *discordgo.Ready) {
 	b.Logger.Successf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
 }
 
-// Message
-func (b *Bot) onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
-	if m.Author.ID == s.State.User.ID {
-		return
-	}
-
-	if m.ChannelID != b.Cfg.ChannelID {
-		return
-	}
-
-	b.Logger.Debugf("%s", m.Content)
-}
-
 func (b *Bot) SearchCVEs() {
 	// assemble pull urls
 	var uris []string
-	terms, _ := b.Sql.GetTerms()
+	terms, _ := b.Sql.ReadBulkTerm()
 
 	if len(terms) > 10 {
 		for chunk := range slices.Chunk(terms, 10) {

@@ -11,6 +11,13 @@ import (
 	"thekrew.app/seeker/internal/feed"
 )
 
+func UserOf(i *discordgo.InteractionCreate) *discordgo.User {
+	if i.Member != nil {
+		return i.Member.User
+	}
+	return i.User
+}
+
 func hexToDecimal(hex string) uint64 {
 	u, err := strconv.ParseUint(hex, 16, 64)
 	if err != nil {
@@ -61,10 +68,6 @@ func ToEmbed(cve feed.Data, cfg *config.Config) *discordgo.MessageEmbed {
 		},
 		Footer: &discordgo.MessageEmbedFooter{Text: "Seeker • CVE feed"},
 	}
-}
-
-func (b *Bot) getTag(s *discordgo.Session) string {
-	return fmt.Sprintf("<@%s>", s.State.User.ID)
 }
 
 func IdToTag(id string) string {
