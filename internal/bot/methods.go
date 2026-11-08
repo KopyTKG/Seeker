@@ -4,6 +4,7 @@ import (
 	"context"
 	"os"
 	"slices"
+	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/kopytkg/golog/v2"
@@ -46,6 +47,8 @@ func (b *Bot) SearchCVEs() {
 	}
 
 	var data []feed.Data
+	var matches []feed.Match
+	vendors := make(map[string]feed.VendorMatch)
 
 	for _, uri := range uris {
 		b.Logger.Debugf("uri: %s", uri)
@@ -55,6 +58,7 @@ func (b *Bot) SearchCVEs() {
 			os.Exit(1)
 		}
 		data = append(data, query.Data...)
+		matches = append(matches, query.Matches...)
 	}
 
 	ctx := context.Background()
@@ -75,7 +79,31 @@ func (b *Bot) SearchCVEs() {
 		}
 	}
 
+	for _, match := range matches {
+		for _, vendor := range match.Matched {
+			vendors[vendor.Vendor] = feed.VendorMatch{
+				Vendor:     vendor.Vendor,
+				Input:      match.Input,
+				Type:       vendor.Type,
+				Confidence: vendor.Confidence,
+				Product:    vendor.Product,
+			}
+		}
+	}
+
 	for _, cve := range data {
-		b.Session.ChannelMessageSendEmbed("1568317626235621566", ToEmbed(cve, b.Cfg))
+		var tags []string
+		for _, v := range cve.Vendors {
+			b.Logger.Debugf("Seacher {%s}", vendors[v].Input)
+			u, _ := b.Sql.ReadUsersByTerm(strings.ToLower(vendors[v].Input))
+			if u != nil {
+				for _, user := range u.Users {
+					tags = append(tags, user.Tag)
+					b.Logger.Debugf("tag {%s}", user.Tag)
+				}
+			}
+		}
+
+		b.Session.ChannelMessageSendEmbed(b.Cfg.ChannelID, ToEmbed(cve, b.Cfg, tags))
 	}
 }

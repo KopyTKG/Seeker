@@ -190,7 +190,7 @@ func (s *SQLite) ReadUsersByTerm(key string) (*isql.Notification, error) {
 	var notif isql.Notification
 
 	var term isql.Term
-	if err := s.c.QueryRow("SELECT * FROM Terms WHERE key = ?", key).Scan(&term.Id, &term.Key); err != nil {
+	if err := s.c.QueryRow("SELECT * FROM Terms WHERE term = ?", key).Scan(&term.Id, &term.Key); err != nil {
 		return nil, err
 	}
 	notif.Id = term.Id

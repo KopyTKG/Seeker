@@ -57,6 +57,14 @@ type Query struct {
 	Data    []Data  `json:"data"`
 }
 
+type VendorMatch struct {
+	Vendor     string
+	Input      string
+	Type       string
+	Confidence float32
+	Product    string
+}
+
 func capitalize(str string) string {
 	if len(str) == 0 {
 		return ""

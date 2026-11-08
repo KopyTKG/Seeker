@@ -39,7 +39,7 @@ func Truncate(s string, max int) string {
 	return s
 }
 
-func ToEmbed(cve feed.Data, cfg *config.Config) *discordgo.MessageEmbed {
+func ToEmbed(cve feed.Data, cfg *config.Config, tags []string) *discordgo.MessageEmbed {
 	colors := map[string]int{
 		"CRITICAL": int(hexToDecimal(cfg.Severities.Critical)),
 		"HIGH":     int(hexToDecimal(cfg.Severities.High)),
@@ -65,6 +65,7 @@ func ToEmbed(cve feed.Data, cfg *config.Config) *discordgo.MessageEmbed {
 			{Name: "Vector", Value: cve.Vector, Inline: false},
 			{Name: "Published", Value: feed.DateToCET(cve.CreatedAt), Inline: true},
 			{Name: "Updated", Value: feed.DateToCET(cve.UpdatedAt), Inline: true},
+			{Name: "Ping", Value: strings.Join(tags, ","), Inline: false},
 		},
 		Footer: &discordgo.MessageEmbedFooter{Text: "Seeker • CVE feed"},
 	}
