@@ -21,6 +21,8 @@ type Config struct {
 	BaseUri    string     `toml:"BaseUri"`
 	ValkeyIP   string     `toml:"ValkeyIP"`
 	Cron       string     `toml:"Cron"`
+	ChannelID  string     `toml:"Channel"`
+	Database   string     `toml:"Database"`
 	Severities Severities `toml:"Severities"`
 }
 type Severities struct {
@@ -33,10 +35,12 @@ type Severities struct {
 
 func DefaultConfig() *Config {
 	return &Config{
-		Token:    "",
-		BaseUri:  "",
-		ValkeyIP: "",
-		Cron:     "*/30 * * * *",
+		Token:     "",
+		BaseUri:   "",
+		ValkeyIP:  "",
+		Cron:      "*/30 * * * *",
+		ChannelID: "",
+		Database:  "",
 		Severities: Severities{
 			Critical: "FF2929",
 			High:     "F79511",

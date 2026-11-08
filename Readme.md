@@ -31,3 +31,7 @@ ValkeyIP = ""
   LOW = "C7FFFB"
   NONE = "CCCCCC"
 ```
+
+> [!NOTE]
+> API limit is per terms, max per request is 10 terms and 100 items.
+> Items are dedupped and sorted to be latest.

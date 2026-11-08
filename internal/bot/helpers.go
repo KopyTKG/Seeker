@@ -40,13 +40,19 @@ func ToEmbed(cve feed.Data, cfg *config.Config) *discordgo.MessageEmbed {
 		"LOW":      int(hexToDecimal(cfg.Severities.Low)),
 		"NONE":     int(hexToDecimal(cfg.Severities.None)),
 	}
+	score := fmt.Sprintf("%.2f", cve.Score)
+	if score == "0.00" && cve.Severity == "" {
+		score = "NaN"
+		cve.Severity = "CRITICAL"
+	}
+
 	return &discordgo.MessageEmbed{
 		Title:       Truncate(cve.ID, 256),
 		URL:         cve.Link,
 		Description: Truncate(cve.Description, 4096),
 		Color:       colors[cve.Severity],
 		Fields: []*discordgo.MessageEmbedField{
-			{Name: "Score", Value: fmt.Sprintf("%f", cve.Score), Inline: true},
+			{Name: "Score", Value: score, Inline: true},
 			{Name: "Severity", Value: cve.Severity, Inline: true},
 			{Name: "Vendors", Value: cve.VendorsToString(), Inline: true},
 			{Name: "Vector", Value: cve.Vector, Inline: false},

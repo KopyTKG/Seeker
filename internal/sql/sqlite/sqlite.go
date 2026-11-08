@@ -92,3 +92,31 @@ func (s *SQLite) GetTerms() ([]isql.Term, error) {
 	}
 	return terms, rows.Err()
 }
+
+func (s *SQLite) GetTermCount() (int, error) {
+	var n int
+	if err := s.c.QueryRow("SELECT COUNT(*) FROM Terms").Scan(&n); err != nil {
+		return 0, err
+	}
+	return n, nil
+}
+
+// ------------------------------------
+// User
+
+func (s *SQLite) AddUser(tag string) error {
+	var n int
+	if err := s.c.QueryRow("SELECT COUNT(tag) FROM Users WHERE tag = ?", tag).Scan(&n); err != nil {
+		return err
+	}
+	if n > 0 {
+		return nil
+	} else {
+		stmt, err := s.c.Prepare(`INSERT INTO Users (tag) VALUES (?)`)
+		if err != nil {
+			return err
+		}
+		stmt.Exec(tag)
+		return nil
+	}
+}

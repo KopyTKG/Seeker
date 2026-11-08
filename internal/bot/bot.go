@@ -51,7 +51,7 @@ func NewBot(path string, version string) *Bot {
 	/*
 		=== SQLite memory ===
 	*/
-	c, err := sqlite.NewSQL("test.db")
+	c, err := sqlite.NewSQL(conf.Database)
 	if err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
