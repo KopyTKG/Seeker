@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"flag"
 	"os"
 	"os/signal"
 	"syscall"
@@ -25,7 +26,6 @@ type Bot struct {
 func NewBot(path string, version string) *Bot {
 	golog.LOGLEVEL = golog.DEBUG
 	logger := golog.Named("Seeker")
-	logger.WithFields(golog.Fields{"version": version}).Info("RSS running")
 
 	/*
 		=== Config file handeling ===
@@ -78,7 +78,23 @@ func NewBot(path string, version string) *Bot {
 		Cron:    cron.New(),
 	}
 
-	b.AddHandler(b.messageCreate)
+	b.AddHandler(b.onReady)
+	b.AddHandler(b.onMessage)
+
+	var handlers = map[string]handler{
+		"ping": b.onPing,
+		"list": b.onList,
+		"add":  b.onAdd,
+	}
+
+	b.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
+		if i.Type != discordgo.InteractionApplicationCommand {
+			return
+		}
+		if h, ok := handlers[i.ApplicationCommandData().Name]; ok {
+			h(s, i)
+		}
+	})
 
 	return &b
 }
@@ -106,6 +122,13 @@ func (b *Bot) Run() {
 		return
 	}
 	b.Cron.Start()
+
+	guild := flag.String("guild", b.Cfg.Guild, "guild ID, empty = global")
+
+	if _, err := b.Session.ApplicationCommandBulkOverwrite(b.Session.State.User.ID, *guild, commands); err != nil {
+		b.Logger.ErrorWithStack(err)
+		os.Exit(1)
+	}
 
 	// Wait here until CTRL-C or other term signal is received.
 	b.Logger.Debug("Bot is now running.  Press CTRL-C to exit.")

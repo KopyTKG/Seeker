@@ -4,7 +4,6 @@ import (
 	"context"
 	"os"
 	"slices"
-	"strings"
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/kopytkg/golog/v2"
@@ -28,7 +27,13 @@ func stringTerms(terms []sql.Term) string {
 	return s
 }
 
-func (b *Bot) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
+// Ready
+func (b *Bot) onReady(s *discordgo.Session, r *discordgo.Ready) {
+	b.Logger.Successf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
+}
+
+// Message
+func (b *Bot) onMessage(s *discordgo.Session, m *discordgo.MessageCreate) {
 	if m.Author.ID == s.State.User.ID {
 		return
 	}
@@ -38,58 +43,6 @@ func (b *Bot) messageCreate(s *discordgo.Session, m *discordgo.MessageCreate) {
 	}
 
 	b.Logger.Debugf("%s", m.Content)
-	err := b.Sql.AddUser(IdToTag(m.Author.ID))
-	if err != nil {
-		b.Logger.ErrorWithStack(err)
-		return
-	}
-
-	splices := strings.Split(m.Content, " ")
-	if len(splices) > 1 {
-		if splices[0] == b.getTag(s) {
-			switch splices[1] {
-			case "setFilter":
-				if len(splices) < 3 {
-					b.Session.ChannelMessageSend(m.ChannelID, IdToTag(m.Author.ID)+" No `term` givven")
-					break
-				}
-				b.addFilter(m, splices[2:])
-			case "listFilters":
-				b.listFilters(m)
-			default:
-				b.helpMenu(m)
-			}
-
-		}
-	} else {
-		b.helpMenu(m)
-	}
-}
-
-func (b *Bot) helpMenu(m *discordgo.MessageCreate) {
-	// To be added
-
-	b.Session.ChannelMessageSend(m.ChannelID, IdToTag(m.Author.ID)+`
-- echo
-- setFilter {item}
-- listFilters
-		`)
-}
-
-func (b *Bot) addFilter(m *discordgo.MessageCreate, args []string) {
-	if len(args) == 0 {
-		b.Session.ChannelMessageSend(m.ChannelID, IdToTag(m.Author.ID)+" No `term` givven")
-	}
-
-	for _, t := range args {
-		b.Logger.Debugf("item -> %s", t)
-		b.Sql.AddTerm(t)
-	}
-}
-
-func (b *Bot) listFilters(m *discordgo.MessageCreate) {
-	terms, _ := b.Sql.GetTerms()
-	b.Session.ChannelMessageSend(m.ChannelID, IdToTag(m.Author.ID)+" "+stringTerms(terms))
 }
 
 func (b *Bot) SearchCVEs() {

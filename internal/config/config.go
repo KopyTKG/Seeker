@@ -23,6 +23,7 @@ type Config struct {
 	Cron       string     `toml:"Cron"`
 	ChannelID  string     `toml:"Channel"`
 	Database   string     `toml:"Database"`
+	Guild      string     `toml:"Guild"`
 	Severities Severities `toml:"Severities"`
 }
 type Severities struct {
@@ -41,6 +42,7 @@ func DefaultConfig() *Config {
 		Cron:      "*/30 * * * *",
 		ChannelID: "",
 		Database:  "",
+		Guild:     "",
 		Severities: Severities{
 			Critical: "FF2929",
 			High:     "F79511",
