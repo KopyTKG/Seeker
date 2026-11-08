@@ -3,7 +3,7 @@
 Seeker is a discord bot written in Golang with use of DiscordGO.
 
 > [!WARNING]
-> This project is not jet finished, please be patient
+> This project is not yet finished, please be patient
 
 ## References
 
