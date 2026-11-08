@@ -10,8 +10,19 @@ type User struct {
 	Tag string `sql:"tag"`
 }
 
-type Notifications struct {
-	Id    int    `sql:"Id_User"`
-	Tag   string `sql:"tag"`
-	Terms []Term `sql:"Term"`
+type UserTerm struct {
+	Id_Term int `sql:"Id_term"`
+	Id_User int `sql:"Id_User"`
+}
+
+type Notification struct {
+	Id    int    `sql:"Id_term"`
+	Key   string `sql:"term"`
+	Users []User
+}
+
+type UserInfo struct {
+	Id    int
+	Tag   string
+	Terms []Term
 }

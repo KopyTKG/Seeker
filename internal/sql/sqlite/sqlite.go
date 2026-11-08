@@ -3,6 +3,7 @@ package sqlite
 import (
 	"database/sql"
 	"fmt"
+	"strings"
 
 	_ "modernc.org/sqlite"
 	isql "thekrew.app/seeker/internal/sql"
@@ -77,14 +78,12 @@ func (s *SQLite) Close() error {
 
 // Create
 func (s *SQLite) CreateTerm(term string) error {
-	stmt, err := s.c.Prepare(`
-INSERT INTO Terms (term) VALUES (?)
-		`)
+	stmt, err := s.c.Prepare(`INSERT INTO Terms (term) VALUES (?)`)
 	if err != nil {
 		return err
 	}
 
-	stmt.Exec(term)
+	stmt.Exec(strings.ToLower(term))
 	return nil
 }
 
@@ -110,7 +109,7 @@ func (s *SQLite) ReadBulkTerm() ([]isql.Term, error) {
 // Read
 func (s *SQLite) ReadTerm(term string) (*isql.Term, error) {
 	var t isql.Term
-	if err := s.c.QueryRow("SELECT * FROM Terms WHERE term = ?", term).Scan(&t); err != nil {
+	if err := s.c.QueryRow("SELECT * FROM Terms WHERE term = ?", term).Scan(&t.Id, &t.Key); err != nil {
 		return nil, err
 	}
 	return &t, nil
@@ -131,7 +130,7 @@ func (s *SQLite) DeleteTerm(term string) error {
 
 /*
 =========================================
-* User CRD no U cuz F*ck update
+* User CR
 =========================================
 */
 
@@ -162,4 +161,119 @@ func (s *SQLite) ReadUser(id string) (*isql.User, error) {
 		return nil, err
 	}
 	return &t, nil
+}
+
+/*
+=========================================
+* UserTerm CRRD
+=========================================
+*/
+
+// Create
+func (s *SQLite) CreateUserTerm(tId int, id string) error {
+	tag := "<@" + id + ">"
+	var t isql.User
+	if err := s.c.QueryRow("SELECT * FROM Users WHERE tag = ?", tag).Scan(&t.Id, &t.Tag); err != nil {
+		return err
+	}
+
+	stmt, err := s.c.Prepare("INSERT INTO UserTerm (Id_term, Id_User) VALUES (?, ?)")
+	if err != nil {
+		return err
+	}
+	stmt.Exec(tId, t.Id)
+	return nil
+}
+
+// Read
+func (s *SQLite) ReadUsersByTerm(key string) (*isql.Notification, error) {
+	var notif isql.Notification
+
+	var term isql.Term
+	if err := s.c.QueryRow("SELECT * FROM Terms WHERE key = ?", key).Scan(&term.Id, &term.Key); err != nil {
+		return nil, err
+	}
+	notif.Id = term.Id
+	notif.Key = term.Key
+
+	rows, err := s.c.Query("SELECT * FROM UserTerm WHERE Id_term = ?", term.Id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var temp isql.UserTerm
+		if err := rows.Scan(&temp.Id_Term, &temp.Id_User); err != nil {
+			return nil, err
+		}
+		var user isql.User
+		if err := s.c.QueryRow("SELECT * FROM Users WHERE Id = ?", temp.Id_User).Scan(&user.Id, &user.Tag); err != nil {
+			return nil, err
+		}
+		notif.Users = append(notif.Users, user)
+	}
+
+	return &notif, nil
+}
+
+// Read
+func (s *SQLite) ReadTermsByUser(id string) (*isql.UserInfo, error) {
+	var info isql.UserInfo
+	tag := "<@" + id + ">"
+
+	var user isql.User
+	if err := s.c.QueryRow("SELECT * FROM Users WHERE tag = ?", tag).Scan(&user.Id, &user.Tag); err != nil {
+		return nil, err
+	}
+	info.Id = user.Id
+	info.Tag = user.Tag
+
+	rows, err := s.c.Query("SELECT * FROM UserTerm WHERE Id_User = ?", user.Id)
+	if err != nil {
+		return nil, err
+	}
+	defer rows.Close()
+
+	for rows.Next() {
+		var temp isql.UserTerm
+		if err := rows.Scan(&temp.Id_Term, &temp.Id_User); err != nil {
+			return nil, err
+		}
+		var term isql.Term
+		if err := s.c.QueryRow("SELECT * FROM Terms WHERE Id = ?", temp.Id_Term).Scan(&term.Id, &term.Key); err != nil {
+			return nil, err
+		}
+		info.Terms = append(info.Terms, term)
+	}
+
+	return &info, nil
+}
+
+// Delete
+func (s *SQLite) DeleteUserTerm(key, id string) error {
+	tag := "<@" + id + ">"
+
+	var user isql.User
+	if err := s.c.QueryRow("SELECT * FROM Users WHERE tag = ?", tag).Scan(&user.Id, &user.Tag); err != nil {
+		return err
+	}
+
+	var term isql.Term
+	if err := s.c.QueryRow("SELECT * FROM Terms WHERE term = ?", key).Scan(&term.Id, &term.Key); err != nil {
+		return err
+	}
+
+	var userTerm isql.UserTerm
+	if err := s.c.QueryRow("SELECT * FROM UserTerm WHERE Id_term = ? and Id_User = ?", term.Id, user.Id).Scan(&userTerm.Id_Term, &userTerm.Id_User); err != nil {
+		return err
+	}
+
+	stmt, err := s.c.Prepare("DELETE FROM UserTerm WHERE Id_term = ? and Id_User = ?")
+	if err != nil {
+		return err
+	}
+
+	stmt.Exec(term.Id, user.Id)
+	return nil
 }

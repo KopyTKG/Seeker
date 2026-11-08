@@ -7,7 +7,12 @@ type SQL interface {
 	ReadBulkTerm() ([]Term, error)
 	ReadTerm(term string) (*Term, error)
 	DeleteTerm(term string) error
-	// CRD User (No update since input isn't givven by user but by session)
+	// CR User
 	AddUser(id string) error
 	ReadUser(id string) (*User, error)
+	// CRRD UserTerm
+	CreateUserTerm(tId int, id string) error
+	ReadUsersByTerm(key string) (*Notification, error)
+	ReadTermsByUser(id string) (*UserInfo, error)
+	DeleteUserTerm(key, id string) error
 }

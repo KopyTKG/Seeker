@@ -87,6 +87,7 @@ func NewBot(path string, version string) *Bot {
 		"remove":   b.onRemove,
 		"follow":   b.onFollow,
 		"unfollow": b.onUnfollow,
+		"follows":  b.onFollows,
 	}
 
 	b.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {

@@ -5,6 +5,7 @@ import (
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
+	_ "thekrew.app/seeker/internal/sql"
 )
 
 // Slash handle
@@ -40,6 +41,7 @@ var commands = []*discordgo.ApplicationCommand{
 			Required:    true,
 		}},
 	},
+	{Name: "follows", Description: "List all topic user follows"},
 	{Name: "unfollow",
 		Description: "Remove follow from topic/s",
 		Options: []*discordgo.ApplicationCommandOption{{
@@ -81,9 +83,13 @@ func (b *Bot) onList(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	b.onReply(s, i, str)
 }
 
+func getArg(i *discordgo.InteractionCreate) string {
+	return strings.ToLower(i.ApplicationCommandData().Options[0].StringValue())
+}
+
 // Add
 func (b *Bot) onAdd(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	term := i.ApplicationCommandData().Options[0].StringValue()
+	term := getArg(i)
 	res := "Adding \n"
 	for t := range strings.SplitSeq(term, ",") {
 		b.Logger.Debugf("adding item -> %s", t)
@@ -96,7 +102,7 @@ func (b *Bot) onAdd(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 // Remove
 func (b *Bot) onRemove(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	term := i.ApplicationCommandData().Options[0].StringValue()
+	term := getArg(i)
 	res := "Removing \n"
 	for t := range strings.SplitSeq(term, ",") {
 		if t == "*" {
@@ -109,7 +115,7 @@ func (b *Bot) onRemove(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			break
 		} else {
 			b.Logger.Debugf("item -> %s", t)
-			b.Sql.DeleteTerm(t)
+			b.Sql.DeleteTerm(strings.ToLower(t))
 			res = res + fmt.Sprintf("- **%s** \n", t)
 		}
 	}
@@ -120,6 +126,7 @@ func (b *Bot) onRemove(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 // Follow
 func (b *Bot) onFollow(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	term := getArg(i)
 	u := UserOf(i)
 	if u == nil {
 		b.onReply(s, i, "could not identify user")
@@ -140,13 +147,38 @@ func (b *Bot) onFollow(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		return
 	}
 
+	res := "You are now following \n"
 	if user != nil {
-		b.onReply(s, i, "Yaaay you now exists in DB")
+		for t := range strings.SplitSeq(term, ",") {
+			if t == "*" {
+				terms, _ := b.Sql.ReadBulkTerm()
+				for _, tr := range terms {
+					b.Logger.Debugf("item -> %s", tr.Key)
+					b.Sql.CreateUserTerm(tr.Id, u.ID)
+					res = res + "- **" + tr.Key + "** \n"
+				}
+				break
+			} else {
+				b.Logger.Debugf("searching {%s}", t)
+				st, err := b.Sql.ReadTerm(t)
+				if err != nil {
+					b.onReply(s, i, "Topic not found")
+					return
+				}
+				b.Logger.Debugf("item -> %s", st.Key)
+				b.Sql.CreateUserTerm(st.Id, u.ID)
+				res = res + "- **" + st.Key + "** \n"
+
+			}
+		}
+
 	}
+	res = res + "You will be pinged if search includes your topic"
+	b.onReply(s, i, res)
 }
 
-// Unfollow
-func (b *Bot) onUnfollow(s *discordgo.Session, i *discordgo.InteractionCreate) {
+// Follows
+func (b *Bot) onFollows(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	u := UserOf(i)
 	if u == nil {
 		b.onReply(s, i, "could not identify user")
@@ -161,6 +193,69 @@ func (b *Bot) onUnfollow(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	}
 
 	if user != nil {
+		info, err := b.Sql.ReadTermsByUser(u.ID)
+		if err != nil {
+			b.onReply(s, i, IdToTag(u.ID)+" You are'nt following any topic.")
+			b.Logger.Error(err.Error())
+			return
+		}
+		if len(info.Terms) == 0 {
+			b.onReply(s, i, IdToTag(u.ID)+" You are'nt following any topic.")
+			return
+		}
+		res := "You are following \n"
+		for _, topic := range info.Terms {
+			res = res + "- **" + topic.Key + "**\n"
+		}
+		b.onReply(s, i, res)
+	} else {
+		b.onReply(s, i, IdToTag(u.ID)+" How the f*ck did you get here?? Like ... you f*cked my code so badly i got here.")
+	}
+
+}
+
+// Unfollow
+func (b *Bot) onUnfollow(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	term := getArg(i)
+	u := UserOf(i)
+	if u == nil {
+		b.onReply(s, i, "could not identify user")
+		return
+	}
+
+	user, err := b.Sql.ReadUser(u.ID)
+	if err != nil {
+		b.onReply(s, i, IdToTag(u.ID)+" WHO THE F*CK ARE YOU??? Sorry i just never saw you.")
+		b.Logger.Error(err.Error())
+		return
+	}
+
+	res := "You are no longer following these topics: \n"
+	if user != nil {
+		for t := range strings.SplitSeq(term, ",") {
+			if t == "*" {
+				terms, _ := b.Sql.ReadBulkTerm()
+				for _, tr := range terms {
+					b.Logger.Debugf("item -> %s", tr.Key)
+					err := b.Sql.DeleteUserTerm(tr.Key, u.ID)
+					if err != nil {
+						b.Logger.Error(err.Error())
+					}
+					res = res + "- **" + tr.Key + "** \n"
+				}
+				break
+			} else {
+				b.Logger.Debugf("item -> %s", t)
+				err := b.Sql.DeleteUserTerm(t, u.ID)
+				if err != nil {
+					b.Logger.Error(err.Error())
+				}
+				res = res + "- **" + t + "** \n"
+
+			}
+		}
 
 	}
+	b.onReply(s, i, res)
+
 }

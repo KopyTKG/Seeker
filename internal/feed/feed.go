@@ -51,6 +51,12 @@ type Data struct {
 	Link        string   `json:"link"`
 }
 
+type Query struct {
+	Meta    Meta    `json:"meta"`
+	Matches []Match `json:"matches"`
+	Data    []Data  `json:"data"`
+}
+
 func capitalize(str string) string {
 	if len(str) == 0 {
 		return ""
@@ -97,12 +103,6 @@ func DateToCET(date string) string {
 	}
 
 	return time.In(prague).Local().String()
-}
-
-type Query struct {
-	Meta    Meta    `json:"meta"`
-	Matches []Match `json:"matches"`
-	Data    []Data  `json:"data"`
 }
 
 func PullFeed(uri string) (*Query, error) {
