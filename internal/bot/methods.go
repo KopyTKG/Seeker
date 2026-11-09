@@ -104,6 +104,12 @@ func (b *Bot) SearchCVEs() {
 			}
 		}
 
-		b.Session.ChannelMessageSendEmbed(b.Cfg.ChannelID, ToEmbed(cve, b.Cfg, tags))
+		b.Session.ChannelMessageSendComplex(b.Cfg.ChannelID, &discordgo.MessageSend{
+			Content: strings.Join(tags, ","),
+			Embeds:  []*discordgo.MessageEmbed{ToEmbed(cve, b.Cfg)},
+			AllowedMentions: &discordgo.MessageAllowedMentions{
+				Parse: []discordgo.AllowedMentionType{discordgo.AllowedMentionTypeUsers},
+			},
+		})
 	}
 }
