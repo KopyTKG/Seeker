@@ -25,13 +25,20 @@ type Config struct {
 	Database   string     `toml:"Database"`
 	Guild      string     `toml:"Guild"`
 	Severities Severities `toml:"Severities"`
+	Logging    Logging    `toml:"Logging"`
 }
+
 type Severities struct {
 	Critical string `toml:"CRITICAL"`
 	High     string `toml:"HIGH"`
 	Medium   string `toml:"MEDUIM"`
 	Low      string `toml:"LOW"`
 	None     string `toml:"NONE"`
+}
+
+type Logging struct {
+	Logfile  string `toml:"Logfile"`
+	Loglevel string `toml:"Loglevel"`
 }
 
 func DefaultConfig() *Config {
@@ -49,6 +56,10 @@ func DefaultConfig() *Config {
 			Medium:   "FAE95C",
 			Low:      "C7FFFB",
 			None:     "CCCCCC",
+		},
+		Logging: Logging{
+			Logfile:  "",
+			Loglevel: "ERROR",
 		},
 	}
 }

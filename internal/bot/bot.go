@@ -24,7 +24,6 @@ type Bot struct {
 }
 
 func NewBot(path string, version string) *Bot {
-	golog.LOGLEVEL = golog.DEBUG
 	logger := golog.Named("Seeker")
 
 	/*
@@ -37,6 +36,23 @@ func NewBot(path string, version string) *Bot {
 		}
 		logger.Successf("Confing created at %s", path)
 		os.Exit(1)
+	}
+
+	switch conf.Logging.Loglevel {
+	case "DEBUG":
+		golog.LOGLEVEL = golog.DEBUG
+	case "ERROR":
+		golog.LOGLEVEL = golog.ERROR
+	case "WARN":
+		golog.LOGLEVEL = golog.WARN
+	case "INFO":
+		golog.LOGLEVEL = golog.INFO
+	default:
+		golog.LOGLEVEL = golog.ERROR
+	}
+
+	if conf.Logging.Logfile != "" {
+		golog.EnableLogFile(conf.Logging.Logfile)
 	}
 
 	/*
