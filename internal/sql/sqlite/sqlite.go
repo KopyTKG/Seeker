@@ -38,57 +38,60 @@ const (
 )
 
 func defaultDB(conn *sql.DB) error {
-	stmt, err := conn.Prepare(`PRAGMA foreign_keys = ON; -- per connection, off by default in SQLite
+	// PRAGMA is per connection; keep a single connection so it always applies
+	conn.SetMaxOpenConns(1)
 
-CREATE TABLE IF NOT EXISTS ? (
-    ?   INTEGER PRIMARY KEY AUTOINCREMENT,
-    ?   TEXT NOT NULL UNIQUE COLLATE NOCASE
-);
-
-CREATE TABLE IF NOT EXISTS ? (
-    ?  INTEGER PRIMARY KEY AUTOINCREMENT,
-    ?  TEXT NOT NULL UNIQUE
-);
-
-CREATE TABLE IF NOT EXISTS ? (
-    ? INTEGER NOT NULL REFERENCES Terms(?) ON DELETE CASCADE,
-    ? INTEGER NOT NULL REFERENCES Users(?) ON DELETE CASCADE,
-    PRIMARY KEY (?, ?)
-) WITHOUT ROWID;
-
-CREATE INDEX IF NOT EXISTS idx_userterm_user ON UserTerm(?);
-	`)
-	if err != nil {
-		return fmt.Errorf("Error while preparing statement: %s", err)
+	stmts := []string{
+		`PRAGMA foreign_keys = ON`,
+		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
+			%s INTEGER PRIMARY KEY AUTOINCREMENT,
+			%s TEXT NOT NULL UNIQUE COLLATE NOCASE
+		)`, TERM_TABLE, TERM_ID, TERM_KEY),
+		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
+			%s INTEGER PRIMARY KEY AUTOINCREMENT,
+			%s TEXT NOT NULL UNIQUE
+		)`, USER_TABLE, USER_ID, USER_TAG),
+		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
+			%s INTEGER NOT NULL REFERENCES %s(%s) ON DELETE CASCADE,
+			%s INTEGER NOT NULL REFERENCES %s(%s) ON DELETE CASCADE,
+			PRIMARY KEY (%s, %s)
+		) WITHOUT ROWID`, UT_TABLE, UT_TERM, TERM_TABLE, TERM_ID, UT_USER, USER_TABLE, USER_ID, UT_TERM, UT_USER),
+		fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_userterm_user ON %s(%s)`, UT_TABLE, UT_USER),
 	}
-	stmt.Exec(TERM_TABLE, TERM_ID, TERM_KEY, USER_TABLE, USER_ID, USER_TAG, UT_TABLE, UT_TERM, UT_USER, UT_TERM, UT_USER, UT_USER)
+	for _, q := range stmts {
+		if _, err := conn.Exec(q); err != nil {
+			return fmt.Errorf("Error while initializing database: %s", err)
+		}
+	}
 	return nil
 }
 
 func NewSQL(source string) (*SQLite, error) {
-
 	db, err := sql.Open("sqlite", source)
 	if err != nil {
 		return nil, fmt.Errorf("Cannot open database file at %s. Error at: %s", source, err)
 	}
 
-	defaultDB(db)
+	if err := defaultDB(db); err != nil {
+		db.Close()
+		return nil, err
+	}
 
-	sql := SQLite{c: db}
-
-	return &sql, nil
+	return &SQLite{c: db}, nil
 }
 
 func (s *SQLite) Close() error {
 	if s.c == nil {
 		return fmt.Errorf("Missing connection to close")
 	}
-	s.c.Close()
-	return nil
+	return s.c.Close()
 }
 
-func (s *SQLite) selectAllWhere() (*sql.Stmt, error) {
-	return s.c.Prepare("SELECT * FROM ? WHERE ? = ?")
+func tag(id string) string { return "<@" + id + ">" }
+
+// selectAllWhere: table/column are trusted constants, only the value is a placeholder
+func selectAllWhere(table, col string) string {
+	return fmt.Sprintf("SELECT * FROM %s WHERE %s = ?", table, col)
 }
 
 /*
@@ -99,23 +102,13 @@ func (s *SQLite) selectAllWhere() (*sql.Stmt, error) {
 
 // Create
 func (s *SQLite) CreateTerm(term string) error {
-	stmt, err := s.c.Prepare(`INSERT INTO ? (?) VALUES (?)`)
-	if err != nil {
-		return err
-	}
-
-	stmt.Exec(TERM_TABLE, TERM_KEY, strings.ToLower(term))
-	return nil
+	_, err := s.c.Exec(fmt.Sprintf("INSERT INTO %s (%s) VALUES (?)", TERM_TABLE, TERM_KEY), strings.ToLower(term))
+	return err
 }
 
 // Bulk Read
 func (s *SQLite) ReadBulkTerm() ([]isql.Term, error) {
-	stmt, err := s.c.Prepare("SELECT * FROM ?")
-	if err != nil {
-		return nil, err
-	}
-
-	rows, err := stmt.Query(TERM_TABLE)
+	rows, err := s.c.Query(fmt.Sprintf("SELECT %s, %s FROM %s", TERM_ID, TERM_KEY, TERM_TABLE))
 	if err != nil {
 		return nil, err
 	}
@@ -134,13 +127,8 @@ func (s *SQLite) ReadBulkTerm() ([]isql.Term, error) {
 
 // Read
 func (s *SQLite) ReadTerm(term string) (*isql.Term, error) {
-	stmt, err := s.selectAllWhere()
-	if err != nil {
-		return nil, err
-	}
-
 	var t isql.Term
-	if err := stmt.QueryRow(TERM_TABLE, TERM_KEY, term).Scan(&t.Id, &t.Key); err != nil {
+	if err := s.c.QueryRow(selectAllWhere(TERM_TABLE, TERM_KEY), term).Scan(&t.Id, &t.Key); err != nil {
 		return nil, err
 	}
 	return &t, nil
@@ -148,15 +136,8 @@ func (s *SQLite) ReadTerm(term string) (*isql.Term, error) {
 
 // Delete
 func (s *SQLite) DeleteTerm(term string) error {
-	stmt, err := s.c.Prepare(`DELETE FROM ? WHERE ? = ?`)
-	if err != nil {
-		return err
-	}
-
-	if _, err := stmt.Exec(TERM_TABLE, TERM_KEY, term); err != nil {
-		return err
-	}
-	return nil
+	_, err := s.c.Exec(fmt.Sprintf("DELETE FROM %s WHERE %s = ?", TERM_TABLE, TERM_KEY), term)
+	return err
 }
 
 /*
@@ -165,43 +146,19 @@ func (s *SQLite) DeleteTerm(term string) error {
 =========================================
 */
 
-// Create
+// Create (no-op if already exists)
 func (s *SQLite) CreateUser(id string) error {
-	stmt, err := s.c.Prepare("SELECT COUNT(?) FROM ? WHERE ? = ?")
-	if err != nil {
-		return err
-	}
-
-	tag := "<@" + id + ">"
-	var n int
-	if err := stmt.QueryRow(USER_TAG, USER_TABLE, USER_TAG, tag).Scan(&n); err != nil {
-		return err
-	}
-	if n > 0 {
-		return nil
-	} else {
-		stmt, err := s.c.Prepare(`INSERT INTO ? (?) VALUES (?)`)
-		if err != nil {
-			return err
-		}
-		stmt.Exec(USER_TABLE, USER_TAG, tag)
-		return nil
-	}
+	_, err := s.c.Exec(fmt.Sprintf("INSERT OR IGNORE INTO %s (%s) VALUES (?)", USER_TABLE, USER_TAG), tag(id))
+	return err
 }
 
 // Read
 func (s *SQLite) ReadUser(id string) (*isql.User, error) {
-	stmt, err := s.selectAllWhere()
-	if err != nil {
+	var u isql.User
+	if err := s.c.QueryRow(selectAllWhere(USER_TABLE, USER_TAG), tag(id)).Scan(&u.Id, &u.Tag); err != nil {
 		return nil, err
 	}
-
-	tag := "<@" + id + ">"
-	var t isql.User
-	if err := stmt.QueryRow(USER_TABLE, USER_TAG, tag).Scan(&t.Id, &t.Tag); err != nil {
-		return nil, err
-	}
-	return &t, nil
+	return &u, nil
 }
 
 /*
@@ -212,156 +169,76 @@ func (s *SQLite) ReadUser(id string) (*isql.User, error) {
 
 // Create
 func (s *SQLite) CreateUserTerm(tId int, id string) error {
-	stmt, err := s.selectAllWhere()
+	u, err := s.ReadUser(id)
 	if err != nil {
 		return err
 	}
-
-	tag := "<@" + id + ">"
-	var t isql.User
-	if err := stmt.QueryRow(USER_TABLE, USER_TAG, tag).Scan(&t.Id, &t.Tag); err != nil {
-		return err
-	}
-
-	stmt, err = s.c.Prepare("INSERT INTO ? (?, ?) VALUES (?, ?)")
-	if err != nil {
-		return err
-	}
-	stmt.Exec(UT_TABLE, UT_TERM, UT_USER, tId, t.Id)
-	return nil
+	_, err = s.c.Exec(fmt.Sprintf("INSERT INTO %s (%s, %s) VALUES (?, ?)", UT_TABLE, UT_TERM, UT_USER), tId, u.Id)
+	return err
 }
 
 // Read
 func (s *SQLite) ReadUsersByTerm(key string) (*isql.Notification, error) {
-	stmt, err := s.selectAllWhere()
+	term, err := s.ReadTerm(key)
 	if err != nil {
 		return nil, err
 	}
+	notif := isql.Notification{Id: term.Id, Key: term.Key}
 
-	stmt1, err := s.selectAllWhere()
-	if err != nil {
-		return nil, err
-	}
-
-	var notif isql.Notification
-
-	var term isql.Term
-	if err := stmt.QueryRow(TERM_TABLE, TERM_KEY, key).Scan(&term.Id, &term.Key); err != nil {
-		return nil, err
-	}
-	notif.Id = term.Id
-	notif.Key = term.Key
-
-	rows, err := stmt1.Query(UT_TABLE, UT_TERM, term.Id)
+	q := fmt.Sprintf("SELECT u.%s, u.%s FROM %s u JOIN %s ut ON ut.%s = u.%s WHERE ut.%s = ?",
+		USER_ID, USER_TAG, USER_TABLE, UT_TABLE, UT_USER, USER_ID, UT_TERM)
+	rows, err := s.c.Query(q, term.Id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-
-		stmt2, err := s.selectAllWhere()
-		if err != nil {
+		var u isql.User
+		if err := rows.Scan(&u.Id, &u.Tag); err != nil {
 			return nil, err
 		}
-
-		var temp isql.UserTerm
-		if err := rows.Scan(&temp.Id_Term, &temp.Id_User); err != nil {
-			return nil, err
-		}
-		var user isql.User
-		if err := stmt2.QueryRow(USER_TABLE, USER_ID, temp.Id_User).Scan(&user.Id, &user.Tag); err != nil {
-			return nil, err
-		}
-		notif.Users = append(notif.Users, user)
+		notif.Users = append(notif.Users, u)
 	}
-
-	return &notif, nil
+	return &notif, rows.Err()
 }
 
 // Read
 func (s *SQLite) ReadTermsByUser(id string) (*isql.UserInfo, error) {
-	stmt, err := s.selectAllWhere()
+	user, err := s.ReadUser(id)
 	if err != nil {
 		return nil, err
 	}
+	info := isql.UserInfo{Id: user.Id, Tag: user.Tag}
 
-	stmt1, err := s.selectAllWhere()
-	if err != nil {
-		return nil, err
-	}
-
-	var info isql.UserInfo
-	tag := "<@" + id + ">"
-
-	var user isql.User
-	if err := stmt.QueryRow(USER_TABLE, USER_TAG, tag).Scan(&user.Id, &user.Tag); err != nil {
-		return nil, err
-	}
-	info.Id = user.Id
-	info.Tag = user.Tag
-
-	rows, err := stmt1.Query(UT_TABLE, UT_USER, user.Id)
+	q := fmt.Sprintf("SELECT t.%s, t.%s FROM %s t JOIN %s ut ON ut.%s = t.%s WHERE ut.%s = ?",
+		TERM_ID, TERM_KEY, TERM_TABLE, UT_TABLE, UT_TERM, TERM_ID, UT_USER)
+	rows, err := s.c.Query(q, user.Id)
 	if err != nil {
 		return nil, err
 	}
 	defer rows.Close()
 
 	for rows.Next() {
-		stmt, err := s.selectAllWhere()
-		if err != nil {
+		var t isql.Term
+		if err := rows.Scan(&t.Id, &t.Key); err != nil {
 			return nil, err
 		}
-
-		var temp isql.UserTerm
-		if err := rows.Scan(&temp.Id_Term, &temp.Id_User); err != nil {
-			return nil, err
-		}
-		var term isql.Term
-		if err := stmt.QueryRow(TERM_TABLE, TERM_ID, temp.Id_Term).Scan(&term.Id, &term.Key); err != nil {
-			return nil, err
-		}
-		info.Terms = append(info.Terms, term)
+		info.Terms = append(info.Terms, t)
 	}
-
-	return &info, nil
+	return &info, rows.Err()
 }
 
 // Delete
 func (s *SQLite) DeleteUserTerm(key, id string) error {
-	tag := "<@" + id + ">"
-
-	stmt, err := s.selectAllWhere()
+	user, err := s.ReadUser(id)
 	if err != nil {
 		return err
 	}
-	var user isql.User
-	if err := s.c.QueryRow(USER_TABLE, USER_TAG, tag).Scan(&user.Id, &user.Tag); err != nil {
-		return err
-	}
-
-	stmt, err = s.selectAllWhere()
+	term, err := s.ReadTerm(key)
 	if err != nil {
 		return err
 	}
-	var term isql.Term
-	if err := s.c.QueryRow(TERM_TABLE, TERM_KEY, key).Scan(&term.Id, &term.Key); err != nil {
-		return err
-	}
-	stmt, err = s.c.Prepare("SELECT * FROM ? WHERE ? = ? and ? = ?")
-	if err != nil {
-		return err
-	}
-	var userTerm isql.UserTerm
-	if err := s.c.QueryRow(UT_TABLE, UT_TERM, UT_USER, term.Id, user.Id).Scan(&userTerm.Id_Term, &userTerm.Id_User); err != nil {
-		return err
-	}
-
-	stmt, err = s.c.Prepare("DELETE FROM ? WHERE ? = ? and ? = ?")
-	if err != nil {
-		return err
-	}
-
-	stmt.Exec(UT_TERM, UT_TERM, UT_USER, term.Id, user.Id)
-	return nil
+	_, err = s.c.Exec(fmt.Sprintf("DELETE FROM %s WHERE %s = ? AND %s = ?", UT_TABLE, UT_TERM, UT_USER), term.Id, user.Id)
+	return err
 }
