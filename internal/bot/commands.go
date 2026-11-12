@@ -14,6 +14,7 @@ type handler func(s *discordgo.Session, i *discordgo.InteractionCreate)
 var commands = []*discordgo.ApplicationCommand{
 	{Name: "ping", Description: "Pong"},
 	{Name: "list", Description: "List all filters"},
+	{Name: "set", Description: "Set current channel as feed channel"},
 	{Name: "add",
 		Description: "Add keyword/s into search pool",
 		Options: []*discordgo.ApplicationCommandOption{{
@@ -51,6 +52,18 @@ var commands = []*discordgo.ApplicationCommand{
 			Required:    true,
 		}},
 	},
+}
+
+func (b *Bot) onSet(s *discordgo.Session, i *discordgo.InteractionCreate) {
+	u := UserOf(i)
+	b.Logger.Debugf("setting channel [%s] as default", i.ChannelID)
+	if b.Cfg.Current.OwnerID != u.ID {
+		b.onReply(s, i, "Not Ok")
+	} else {
+		b.Cfg.Current.ChannelID = i.ChannelID
+		b.Cfg.Save()
+		b.onReply(s, i, "Setting current channel as feed channel")
+	}
 }
 
 // Reply

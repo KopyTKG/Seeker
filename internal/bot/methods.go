@@ -2,6 +2,7 @@ package bot
 
 import (
 	"context"
+	"net/url"
 	"os"
 	"slices"
 	"strings"
@@ -14,7 +15,15 @@ import (
 
 // Helpers
 func (b *Bot) assableUri(terms string) string {
-	return b.Cfg.BaseUri + "?term=" + terms
+	u, err := url.Parse(b.Cfg.Current.BaseUri)
+	if err != nil {
+		b.Logger.Errorf("invalid base uri: %s", err)
+		return b.Cfg.Current.BaseUri
+	}
+	q := u.Query()
+	q.Set("term", terms)
+	u.RawQuery = q.Encode()
+	return u.String()
 }
 func stringTerms(terms []sql.Term) string {
 	s := ""
@@ -76,6 +85,8 @@ func (b *Bot) SearchCVEs() {
 				b.Logger.Errorf("%s", err)
 			}
 			clean = append(clean, cve)
+		} else {
+			b.Logger.Debugf("Exists [%s]", cve.ID)
 		}
 	}
 
@@ -104,9 +115,9 @@ func (b *Bot) SearchCVEs() {
 			}
 		}
 
-		b.Session.ChannelMessageSendComplex(b.Cfg.ChannelID, &discordgo.MessageSend{
+		b.Session.ChannelMessageSendComplex(b.Cfg.Current.ChannelID, &discordgo.MessageSend{
 			Content: strings.Join(tags, ","),
-			Embeds:  []*discordgo.MessageEmbed{ToEmbed(cve, b.Cfg)},
+			Embeds:  []*discordgo.MessageEmbed{ToEmbed(cve, b.Cfg.Current)},
 			AllowedMentions: &discordgo.MessageAllowedMentions{
 				Parse: []discordgo.AllowedMentionType{discordgo.AllowedMentionTypeUsers},
 			},

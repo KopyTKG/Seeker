@@ -16,7 +16,7 @@ import (
 
 type Bot struct {
 	Vk      *valkey.Client
-	Cfg     *config.Config
+	Cfg     *config.Manager
 	Sql     *sqlite.SQLite
 	Logger  *golog.Logger
 	Session *discordgo.Session
@@ -27,18 +27,18 @@ func NewBot(path string, version string) *Bot {
 	logger := golog.Named("Seeker")
 
 	/*
-		=== Config file handeling ===
+		=== conf.Current.g file handeling ===
 	*/
 	conf, err := config.LoadFromFile(path)
 	if err != nil {
 		if err = config.SaveDefault(path); err != nil {
 			logger.Errorf("%s", err)
 		}
-		logger.Successf("Confing created at %s", path)
+		logger.Successf("conf.Current.ng created at %s", path)
 		os.Exit(1)
 	}
 
-	switch conf.Logging.Loglevel {
+	switch conf.Current.Logging.Loglevel {
 	case "DEBUG":
 		golog.LOGLEVEL = golog.DEBUG
 	case "ERROR":
@@ -51,14 +51,19 @@ func NewBot(path string, version string) *Bot {
 		golog.LOGLEVEL = golog.ERROR
 	}
 
-	if conf.Logging.Logfile != "" {
-		golog.EnableLogFile(conf.Logging.Logfile)
+	if conf.Current.Logging.Logfile != "" {
+		golog.EnableLogFile(conf.Current.Logging.Logfile)
+	}
+
+	if conf.Current.OwnerID == "" {
+		logger.Errorf("Bot cannot run without owner!! Set OwnerID in {%s}", path)
+		os.Exit(9)
 	}
 
 	/*
 		=== Valkey cache ===
 	*/
-	vk, err := valkey.New(conf.ValkeyIP)
+	vk, err := valkey.New(conf.Current.ValkeyIP)
 	if err != nil {
 		logger.Errorf("%f\n", err)
 		os.Exit(1)
@@ -67,7 +72,7 @@ func NewBot(path string, version string) *Bot {
 	/*
 		=== SQLite memory ===
 	*/
-	c, err := sqlite.NewSQL(conf.Database)
+	c, err := sqlite.NewSQL(conf.Current.Database)
 	if err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
@@ -76,7 +81,7 @@ func NewBot(path string, version string) *Bot {
 	/*
 		=== Bot setup ===
 	*/
-	session, err := discordgo.New("Bot " + conf.Token)
+	session, err := discordgo.New("Bot " + conf.Current.Token)
 	if err != nil {
 		logger.Errorf("error creating Discord session, %s", err)
 		os.Exit(1)
@@ -99,6 +104,7 @@ func NewBot(path string, version string) *Bot {
 	var handlers = map[string]handler{
 		"ping":     b.onPing,
 		"list":     b.onList,
+		"set":      b.onSet,
 		"add":      b.onAdd,
 		"remove":   b.onRemove,
 		"follow":   b.onFollow,
@@ -114,6 +120,12 @@ func NewBot(path string, version string) *Bot {
 			h(s, i)
 		}
 	})
+
+	_, err = b.AddFunc("*/2 * * * *", b.SearchCVEs)
+	if err != nil {
+		b.Logger.Errorf("Error during cron creation, %s", err)
+		os.Exit(1)
+	}
 
 	return &b
 }
@@ -142,7 +154,7 @@ func (b *Bot) Run() {
 	}
 	b.Cron.Start()
 
-	guild := flag.String("guild", b.Cfg.Guild, "guild ID, empty = global")
+	guild := flag.String("guild", b.Cfg.Current.Guild, "guild ID, empty = global")
 
 	if _, err := b.Session.ApplicationCommandBulkOverwrite(b.Session.State.User.ID, *guild, commands); err != nil {
 		b.Logger.ErrorWithStack(err)

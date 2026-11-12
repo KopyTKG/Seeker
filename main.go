@@ -27,11 +27,6 @@ func main() {
 	}
 
 	bot := disbot.NewBot(arg, VERSION)
-	_, err = bot.AddFunc("*/2 * * * *", bot.SearchCVEs)
-	if err != nil {
-		bot.Logger.Errorf("Error during cron creation, %s", err)
-		return
-	}
 
 	bot.Run()
 }

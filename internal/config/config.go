@@ -4,7 +4,6 @@ import (
 	"fmt"
 	"os"
 	"path/filepath"
-	"sync"
 
 	"github.com/BurntSushi/toml"
 	"github.com/kopytkg/golog/v2"
@@ -13,7 +12,6 @@ import (
 type Manager struct {
 	Current *Config
 	Path    string
-	mu      sync.Mutex
 }
 
 type Config struct {
@@ -24,6 +22,7 @@ type Config struct {
 	ChannelID  string     `toml:"Channel"`
 	Database   string     `toml:"Database"`
 	Guild      string     `toml:"Guild"`
+	OwnerID    string     `toml:"OwnerID"`
 	TimeZone   string     `toml:"TimeZone"`
 	Severities Severities `toml:"Severities"`
 	Logging    Logging    `toml:"Logging"`
@@ -51,6 +50,7 @@ func DefaultConfig() *Config {
 		ChannelID: "",
 		Database:  "",
 		Guild:     "",
+		OwnerID:   "",
 		TimeZone:  "Europe/Prague",
 		Severities: Severities{
 			Critical: "FF2929",
@@ -66,7 +66,7 @@ func DefaultConfig() *Config {
 	}
 }
 
-func LoadFromFile(path string) (*Config, error) {
+func LoadFromFile(path string) (*Manager, error) {
 	data, err := os.ReadFile(path)
 	if err != nil {
 		golog.APPWarnf("Attempting to create config file at %s", path)
@@ -83,7 +83,7 @@ func LoadFromFile(path string) (*Config, error) {
 		return nil, fmt.Errorf("Empty config detected, please edit config at %s", path)
 	}
 
-	return config, nil
+	return &Manager{Current: config, Path: path}, nil
 }
 
 func SaveDefault(path string) error {
@@ -101,6 +101,27 @@ func SaveDefault(path string) error {
 
 	// Write file with restricted permissions
 	if err := os.WriteFile(path, data, 0640); err != nil {
+		return fmt.Errorf("failed to write config file: %w", err)
+	}
+
+	return nil
+}
+
+func (m *Manager) Save() error {
+	// Marshal to TOML
+	data, err := toml.Marshal(m.Current)
+	if err != nil {
+		return fmt.Errorf("failed to marshal TOML: %w", err)
+	}
+
+	// Create directory if it doesn't exist
+	dir := filepath.Dir(m.Path)
+	if err := os.MkdirAll(dir, 0755); err != nil {
+		return fmt.Errorf("failed to create directory: %w", err)
+	}
+
+	// Write file with restricted permissions
+	if err := os.WriteFile(m.Path, data, 0640); err != nil {
 		return fmt.Errorf("failed to write config file: %w", err)
 	}
 
