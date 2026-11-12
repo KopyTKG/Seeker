@@ -24,6 +24,7 @@ type Config struct {
 	ChannelID  string     `toml:"Channel"`
 	Database   string     `toml:"Database"`
 	Guild      string     `toml:"Guild"`
+	TimeZone   string     `toml:"TimeZone"`
 	Severities Severities `toml:"Severities"`
 	Logging    Logging    `toml:"Logging"`
 }
@@ -50,6 +51,7 @@ func DefaultConfig() *Config {
 		ChannelID: "",
 		Database:  "",
 		Guild:     "",
+		TimeZone:  "Europe/Prague",
 		Severities: Severities{
 			Critical: "FF2929",
 			High:     "F79511",

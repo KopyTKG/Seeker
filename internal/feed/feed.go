@@ -97,8 +97,8 @@ func (d *Data) VendorsToString() string {
 	return s
 }
 
-func DateToCET(date string) string {
-	prague, err := time.LoadLocation("Europe/Prague")
+func DateToCET(date string, timezone string) string {
+	tz, err := time.LoadLocation(timezone)
 	if err != nil {
 		golog.Errorf("Error during timezone setup: %s", err)
 	}
@@ -110,7 +110,7 @@ func DateToCET(date string) string {
 		return ""
 	}
 
-	return time.In(prague).Local().String()
+	return time.In(tz).Local().String()
 }
 
 func PullFeed(uri string) (*Query, error) {
