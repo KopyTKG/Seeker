@@ -91,7 +91,7 @@ func (b *Bot) SearchCVEs() {
 		}
 	}
 
-	for _, cve := range data {
+	for _, cve := range clean {
 		var tags []string
 		for _, v := range cve.Vendors {
 			b.Logger.Debugf("Seacher {%s}", vendors[v].Input)
