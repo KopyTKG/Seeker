@@ -15,10 +15,10 @@ import (
 
 // Helpers
 func (b *Bot) assableUri(terms string) string {
-	u, err := url.Parse(b.Cfg.Current.BaseUri)
+	u, err := url.Parse(b.Cfg.Current.Configuration.BaseUri)
 	if err != nil {
 		b.Logger.Errorf("invalid base uri: %s", err)
-		return b.Cfg.Current.BaseUri
+		return b.Cfg.Current.Configuration.BaseUri
 	}
 	q := u.Query()
 	q.Set("term", terms)
@@ -115,7 +115,7 @@ func (b *Bot) SearchCVEs() {
 			}
 		}
 
-		b.Session.ChannelMessageSendComplex(b.Cfg.Current.ChannelID, &discordgo.MessageSend{
+		b.Session.ChannelMessageSendComplex(b.Cfg.Current.Authentication.ChannelID, &discordgo.MessageSend{
 			Content: strings.Join(tags, ","),
 			Embeds:  []*discordgo.MessageEmbed{ToEmbed(cve, b.Cfg.Current)},
 			AllowedMentions: &discordgo.MessageAllowedMentions{

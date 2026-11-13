@@ -55,12 +55,11 @@ var commands = []*discordgo.ApplicationCommand{
 }
 
 func (b *Bot) onSet(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	u := UserOf(i)
-	b.Logger.Debugf("setting channel [%s] as default", i.ChannelID)
-	if b.Cfg.Current.OwnerID != u.ID {
+	if !b.IsAdmin(i) {
 		b.onReply(s, i, "Not Ok")
 	} else {
-		b.Cfg.Current.ChannelID = i.ChannelID
+		b.Logger.Debugf("setting channel [%s] as default", i.ChannelID)
+		b.Cfg.Current.Authentication.ChannelID = i.ChannelID
 		b.Cfg.Save()
 		b.onReply(s, i, "Setting current channel as feed channel")
 	}
@@ -140,7 +139,7 @@ func (b *Bot) onRemove(s *discordgo.Session, i *discordgo.InteractionCreate) {
 // Follow
 func (b *Bot) onFollow(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	term := getArg(i)
-	u := UserOf(i)
+	u := b.UserOf(i)
 	if u == nil {
 		b.onReply(s, i, "could not identify user")
 		return
@@ -192,7 +191,7 @@ func (b *Bot) onFollow(s *discordgo.Session, i *discordgo.InteractionCreate) {
 
 // Follows
 func (b *Bot) onFollows(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	u := UserOf(i)
+	u := b.UserOf(i)
 	if u == nil {
 		b.onReply(s, i, "could not identify user")
 		return
@@ -230,7 +229,7 @@ func (b *Bot) onFollows(s *discordgo.Session, i *discordgo.InteractionCreate) {
 // Unfollow
 func (b *Bot) onUnfollow(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	term := getArg(i)
-	u := UserOf(i)
+	u := b.UserOf(i)
 	if u == nil {
 		b.onReply(s, i, "could not identify user")
 		return

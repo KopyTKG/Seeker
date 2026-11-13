@@ -11,13 +11,6 @@ import (
 	"thekrew.app/seeker/internal/feed"
 )
 
-func UserOf(i *discordgo.InteractionCreate) *discordgo.User {
-	if i.Member != nil {
-		return i.Member.User
-	}
-	return i.User
-}
-
 func hexToDecimal(hex string) uint64 {
 	u, err := strconv.ParseUint(hex, 16, 64)
 	if err != nil {
@@ -63,8 +56,8 @@ func ToEmbed(cve feed.Data, cfg *config.Config) *discordgo.MessageEmbed {
 			{Name: "Severity", Value: cve.Severity, Inline: true},
 			{Name: "Vendors", Value: cve.VendorsToString(), Inline: true},
 			{Name: "Vector", Value: cve.Vector, Inline: false},
-			{Name: "Published", Value: feed.DateToCET(cve.CreatedAt, cfg.TimeZone), Inline: true},
-			{Name: "Updated", Value: feed.DateToCET(cve.UpdatedAt, cfg.TimeZone), Inline: true},
+			{Name: "Published", Value: feed.DateToCET(cve.CreatedAt, cfg.Configuration.TimeZone), Inline: true},
+			{Name: "Updated", Value: feed.DateToCET(cve.UpdatedAt, cfg.Configuration.TimeZone), Inline: true},
 		},
 		Footer: &discordgo.MessageEmbedFooter{Text: "Seeker • CVE feed"},
 	}

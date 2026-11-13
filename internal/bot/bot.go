@@ -55,7 +55,7 @@ func NewBot(path string, version string) *Bot {
 		golog.EnableLogFile(conf.Current.Logging.Logfile)
 	}
 
-	if conf.Current.OwnerID == "" {
+	if len(conf.Current.Authentication.Admins) == 0 {
 		logger.Errorf("Bot cannot run without owner!! Set OwnerID in {%s}", path)
 		os.Exit(9)
 	}
@@ -63,7 +63,7 @@ func NewBot(path string, version string) *Bot {
 	/*
 		=== Valkey cache ===
 	*/
-	vk, err := valkey.New(conf.Current.ValkeyIP)
+	vk, err := valkey.New(conf.Current.Configuration.ValkeyIP)
 	if err != nil {
 		logger.Errorf("%f\n", err)
 		os.Exit(1)
@@ -72,7 +72,7 @@ func NewBot(path string, version string) *Bot {
 	/*
 		=== SQLite memory ===
 	*/
-	c, err := sqlite.NewSQL(conf.Current.Database)
+	c, err := sqlite.NewSQL(conf.Current.Configuration.Database)
 	if err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
@@ -81,7 +81,7 @@ func NewBot(path string, version string) *Bot {
 	/*
 		=== Bot setup ===
 	*/
-	session, err := discordgo.New("Bot " + conf.Current.Token)
+	session, err := discordgo.New("Bot " + conf.Current.Authentication.Token)
 	if err != nil {
 		logger.Errorf("error creating Discord session, %s", err)
 		os.Exit(1)
@@ -154,7 +154,7 @@ func (b *Bot) Run() {
 	}
 	b.Cron.Start()
 
-	guild := flag.String("guild", b.Cfg.Current.Guild, "guild ID, empty = global")
+	guild := flag.String("guild", b.Cfg.Current.Authentication.Guild, "guild ID, empty = global")
 
 	if _, err := b.Session.ApplicationCommandBulkOverwrite(b.Session.State.User.ID, *guild, commands); err != nil {
 		b.Logger.ErrorWithStack(err)

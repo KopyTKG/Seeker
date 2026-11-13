@@ -15,17 +15,25 @@ type Manager struct {
 }
 
 type Config struct {
-	Token      string     `toml:"Token"`
-	BaseUri    string     `toml:"BaseUri"`
-	ValkeyIP   string     `toml:"ValkeyIP"`
-	Cron       string     `toml:"Cron"`
-	ChannelID  string     `toml:"Channel"`
-	Database   string     `toml:"Database"`
-	Guild      string     `toml:"Guild"`
-	OwnerID    string     `toml:"OwnerID"`
-	TimeZone   string     `toml:"TimeZone"`
-	Severities Severities `toml:"Severities"`
-	Logging    Logging    `toml:"Logging"`
+	Configuration  Configuration `toml:"Configuration"`
+	Authentication Auth          `toml:"Authentication"`
+	Severities     Severities    `toml:"Severities"`
+	Logging        Logging       `toml:"Logging"`
+}
+
+type Configuration struct {
+	BaseUri  string `toml:"BaseUri"`
+	ValkeyIP string `toml:"ValkeyIP"`
+	Database string `toml:"Database"`
+	Cron     string `toml:"Cron"`
+	TimeZone string `toml:"TimeZone"`
+}
+
+type Auth struct {
+	Token     string   `toml:"Token"`
+	ChannelID string   `toml:"Channel"`
+	Guild     string   `toml:"Guild"`
+	Admins    []string `toml:"Admins"`
 }
 
 type Severities struct {
@@ -43,15 +51,19 @@ type Logging struct {
 
 func DefaultConfig() *Config {
 	return &Config{
-		Token:     "",
-		BaseUri:   "",
-		ValkeyIP:  "",
-		Cron:      "*/30 * * * *",
-		ChannelID: "",
-		Database:  "",
-		Guild:     "",
-		OwnerID:   "",
-		TimeZone:  "Europe/Prague",
+		Configuration: Configuration{
+			BaseUri:  "",
+			ValkeyIP: "",
+			Cron:     "*/30 * * * *",
+			Database: "",
+			TimeZone: "Europe/Prague",
+		},
+		Authentication: Auth{
+			Token:     "",
+			ChannelID: "",
+			Guild:     "",
+			Admins:    []string{},
+		},
 		Severities: Severities{
 			Critical: "FF2929",
 			High:     "F79511",
@@ -79,7 +91,7 @@ func LoadFromFile(path string) (*Manager, error) {
 		return nil, fmt.Errorf("Failed to parse TOML: %s", err)
 	}
 
-	if config.ValkeyIP == "" {
+	if config.Configuration.ValkeyIP == "" {
 		return nil, fmt.Errorf("Empty config detected, please edit config at %s", path)
 	}
 
