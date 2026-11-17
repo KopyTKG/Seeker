@@ -80,7 +80,7 @@ func (b *Bot) SearchCVEs() {
 		if !exists {
 			b.Logger.Debugf("NO [%s]", cve.ID)
 
-			err = b.Vk.Set(ctx, cve.ID, cve.ToString())
+			err = b.Vk.Set(ctx, cve.ID, cve.ToString(), b.Cfg.Current.Cache.Expiration)
 			if err != nil {
 				b.Logger.Errorf("%s", err)
 			}

@@ -32,9 +32,9 @@ func (v *Client) Get(ctx context.Context, key string) (string, error) {
 	return vc, err
 }
 
-func (v *Client) Set(ctx context.Context, key, data string) error {
+func (v *Client) Set(ctx context.Context, key, data string, expiration int) error {
 	// Hard limit to 24h then expire
-	return v.c.Do(ctx, v.c.B().Set().Key(key).Value(data).ExSeconds(86400).Build()).Error()
+	return v.c.Do(ctx, v.c.B().Set().Key(key).Value(data).ExSeconds(int64(expiration)).Build()).Error()
 }
 
 func (v *Client) Exists(ctx context.Context, key string) (bool, error) {

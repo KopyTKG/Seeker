@@ -33,5 +33,16 @@ func (b *Bot) CanUse(i *discordgo.InteractionCreate) bool {
 		return false
 	}
 
+	target := i.Member
+	if target != nil {
+		for _, trusted := range b.Cfg.Current.Authentication.Roles {
+			if slices.Contains(target.Roles, trusted) {
+				return true
+			}
+		}
+	} else {
+		b.Logger.Debug("No target")
+	}
+
 	return false
 }

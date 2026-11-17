@@ -19,6 +19,7 @@ type Config struct {
 	Authentication Auth          `toml:"Authentication"`
 	Severities     Severities    `toml:"Severities"`
 	Logging        Logging       `toml:"Logging"`
+	Cache          CacheSettings `toml:"Cache"`
 }
 
 type Configuration struct {
@@ -34,6 +35,7 @@ type Auth struct {
 	ChannelID string   `toml:"Channel"`
 	Guild     string   `toml:"Guild"`
 	Admins    []string `toml:"Admins"`
+	Roles     []string `toml:"Roles"`
 }
 
 type Severities struct {
@@ -47,6 +49,10 @@ type Severities struct {
 type Logging struct {
 	Logfile  string `toml:"Logfile"`
 	Loglevel string `toml:"Loglevel"`
+}
+
+type CacheSettings struct {
+	Expiration int `toml:"Expiration"`
 }
 
 func DefaultConfig() *Config {
@@ -63,6 +69,7 @@ func DefaultConfig() *Config {
 			ChannelID: "",
 			Guild:     "",
 			Admins:    []string{},
+			Roles:     []string{},
 		},
 		Severities: Severities{
 			Critical: "FF2929",
@@ -74,6 +81,9 @@ func DefaultConfig() *Config {
 		Logging: Logging{
 			Logfile:  "",
 			Loglevel: "ERROR",
+		},
+		Cache: CacheSettings{
+			Expiration: 86400,
 		},
 	}
 }

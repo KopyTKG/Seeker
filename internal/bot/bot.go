@@ -110,6 +110,8 @@ func NewBot(path string, version string) *Bot {
 		"follow":   b.onFollow,
 		"unfollow": b.onUnfollow,
 		"follows":  b.onFollows,
+		"addrole":  b.onAddRole,
+		"delrole":  b.onDelRole,
 	}
 
 	b.AddHandler(func(s *discordgo.Session, i *discordgo.InteractionCreate) {
