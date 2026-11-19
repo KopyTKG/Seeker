@@ -25,6 +25,7 @@ func (b *Bot) assableUri(terms string) string {
 	u.RawQuery = q.Encode()
 	return u.String()
 }
+
 func stringTerms(terms []sql.Term) string {
 	s := ""
 	for i, t := range terms {
@@ -35,11 +36,6 @@ func stringTerms(terms []sql.Term) string {
 		}
 	}
 	return s
-}
-
-// Ready
-func (b *Bot) onReady(s *discordgo.Session, r *discordgo.Ready) {
-	b.Logger.Successf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
 }
 
 func (b *Bot) SearchCVEs() {

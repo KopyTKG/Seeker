@@ -80,6 +80,21 @@ func (b *Bot) noPerms(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	b.onReply(s, i, "You have insuficient permissions to use this command")
 }
 
+// Ready
+func (b *Bot) onReady(s *discordgo.Session, r *discordgo.Ready) {
+	b.Logger.Successf("Logged in as: %v#%v", s.State.User.Username, s.State.User.Discriminator)
+	err := s.UpdateStatusComplex(discordgo.UpdateStatusData{
+		Status: "online",
+		Activities: []*discordgo.Activity{{
+			Name: "for new CVEs (" + b.Version + ")",
+			Type: discordgo.ActivityTypeWatching,
+		}},
+	})
+	if err != nil {
+		b.Logger.ErrorWithStack(err)
+	}
+}
+
 // Set
 func (b *Bot) onSet(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if !b.IsAdmin(i) {

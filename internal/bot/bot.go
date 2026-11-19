@@ -21,6 +21,7 @@ type Bot struct {
 	Logger  *golog.Logger
 	Session *discordgo.Session
 	Cron    *cron.Cron
+	Version string
 }
 
 func NewBot(path string, version string) *Bot {
@@ -97,6 +98,7 @@ func NewBot(path string, version string) *Bot {
 		Logger:  logger,
 		Session: session,
 		Cron:    cron.New(),
+		Version: version,
 	}
 
 	b.AddHandler(b.onReady)
