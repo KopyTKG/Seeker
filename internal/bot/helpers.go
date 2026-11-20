@@ -8,7 +8,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"thekrew.app/seeker/internal/config"
-	"thekrew.app/seeker/internal/feed"
+	"thekrew.app/seeker/internal/sql"
 )
 
 func hexToDecimal(hex string) uint64 {
@@ -32,7 +32,7 @@ func Truncate(s string, max int) string {
 	return s
 }
 
-func ToEmbed(cve feed.Data, cfg *config.Config) *discordgo.MessageEmbed {
+func ToEmbed(cve sql.CVEs, cfg *config.Config) *discordgo.MessageEmbed {
 	colors := map[string]int{
 		"CRITICAL": int(hexToDecimal(cfg.Severities.Critical)),
 		"HIGH":     int(hexToDecimal(cfg.Severities.High)),
@@ -47,17 +47,17 @@ func ToEmbed(cve feed.Data, cfg *config.Config) *discordgo.MessageEmbed {
 	}
 
 	return &discordgo.MessageEmbed{
-		Title:       Truncate(cve.ID, 256),
+		Title:       Truncate(cve.Id, 256),
 		URL:         cve.Link,
 		Description: Truncate(cve.Description, 4096),
 		Color:       colors[cve.Severity],
 		Fields: []*discordgo.MessageEmbedField{
 			{Name: "Score", Value: score, Inline: true},
 			{Name: "Severity", Value: cve.Severity, Inline: true},
-			{Name: "Vendors", Value: cve.VendorsToString(), Inline: true},
+			{Name: "Vendors", Value: cve.Vendors, Inline: true},
 			{Name: "Vector", Value: cve.Vector, Inline: false},
-			{Name: "Published", Value: feed.DateToCET(cve.CreatedAt, cfg.Configuration.TimeZone), Inline: true},
-			{Name: "Updated", Value: feed.DateToCET(cve.UpdatedAt, cfg.Configuration.TimeZone), Inline: true},
+			{Name: "Published", Value: cve.CreatedAt.String(), Inline: true},
+			{Name: "Updated", Value: cve.UpdatedAt.String(), Inline: true},
 		},
 		Footer: &discordgo.MessageEmbedFooter{Text: "Seeker • CVE feed"},
 	}

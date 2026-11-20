@@ -1,5 +1,9 @@
 package sql
 
+import (
+	"time"
+)
+
 type Term struct {
 	Id  int    `sql:"Id"`
 	Key string `sql:"term"`
@@ -25,4 +29,17 @@ type UserInfo struct {
 	Id    int
 	Tag   string
 	Terms []Term
+}
+
+type CVEs struct {
+	Id          string
+	Title       string
+	Description string
+	CreatedAt   time.Time
+	UpdatedAt   time.Time
+	Score       float32
+	Severity    string
+	Vector      string
+	Vendors     string
+	Link        string
 }
