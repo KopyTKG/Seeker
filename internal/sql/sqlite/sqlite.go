@@ -2,6 +2,7 @@ package sqlite
 
 import (
 	"database/sql"
+	_ "embed"
 	"fmt"
 	"strings"
 
@@ -37,31 +38,18 @@ const (
 	UT_USER = "Id_User"
 )
 
+//go:embed schema.sql
+var schema string
+
 func defaultDB(conn *sql.DB) error {
 	// PRAGMA is per connection; keep a single connection so it always applies
 	conn.SetMaxOpenConns(1)
 
-	stmts := []string{
-		`PRAGMA foreign_keys = ON`,
-		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
-			%s INTEGER PRIMARY KEY AUTOINCREMENT,
-			%s TEXT NOT NULL UNIQUE COLLATE NOCASE
-		)`, TERM_TABLE, TERM_ID, TERM_KEY),
-		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
-			%s INTEGER PRIMARY KEY AUTOINCREMENT,
-			%s TEXT NOT NULL UNIQUE
-		)`, USER_TABLE, USER_ID, USER_TAG),
-		fmt.Sprintf(`CREATE TABLE IF NOT EXISTS %s (
-			%s INTEGER NOT NULL REFERENCES %s(%s) ON DELETE CASCADE,
-			%s INTEGER NOT NULL REFERENCES %s(%s) ON DELETE CASCADE,
-			PRIMARY KEY (%s, %s)
-		) WITHOUT ROWID`, UT_TABLE, UT_TERM, TERM_TABLE, TERM_ID, UT_USER, USER_TABLE, USER_ID, UT_TERM, UT_USER),
-		fmt.Sprintf(`CREATE INDEX IF NOT EXISTS idx_userterm_user ON %s(%s)`, UT_TABLE, UT_USER),
+	if _, err := conn.Exec(`PRAGMA foreign_keys = ON`); err != nil {
+		return fmt.Errorf("Error while initializing database: %s", err)
 	}
-	for _, q := range stmts {
-		if _, err := conn.Exec(q); err != nil {
-			return fmt.Errorf("Error while initializing database: %s", err)
-		}
+	if _, err := conn.Exec(schema); err != nil {
+		return fmt.Errorf("Error while applying schema: %s", err)
 	}
 	return nil
 }
