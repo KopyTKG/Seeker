@@ -2,3 +2,4 @@ config.toml
 cve-discord
 test.db
 logs
+seeker
