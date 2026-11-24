@@ -8,7 +8,7 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"thekrew.app/seeker/internal/config"
-	"thekrew.app/seeker/internal/sql"
+	"thekrew.app/seeker/internal/infra/model"
 )
 
 func hexToDecimal(hex string) uint64 {
@@ -32,7 +32,7 @@ func Truncate(s string, max int) string {
 	return s
 }
 
-func ToEmbed(cve sql.CVEs, cfg *config.Config) *discordgo.MessageEmbed {
+func ToEmbed(cve model.CVE, cfg *config.Config) *discordgo.MessageEmbed {
 	colors := map[string]int{
 		"CRITICAL": int(hexToDecimal(cfg.Severities.Critical)),
 		"HIGH":     int(hexToDecimal(cfg.Severities.High)),
@@ -47,7 +47,7 @@ func ToEmbed(cve sql.CVEs, cfg *config.Config) *discordgo.MessageEmbed {
 	}
 
 	return &discordgo.MessageEmbed{
-		Title:       Truncate(cve.Id, 256),
+		Title:       Truncate(cve.ID, 256),
 		URL:         cve.Link,
 		Description: Truncate(cve.Description, 4096),
 		Color:       colors[cve.Severity],

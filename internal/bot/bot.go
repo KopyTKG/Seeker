@@ -11,17 +11,17 @@ import (
 	"github.com/robfig/cron/v3"
 	"thekrew.app/seeker/internal/cache/valkey"
 	"thekrew.app/seeker/internal/config"
-	"thekrew.app/seeker/internal/sql/sqlite"
+	"thekrew.app/seeker/internal/infra"
 )
 
 type Bot struct {
-	Vk      *valkey.Client
-	Cfg     *config.Manager
-	Sql     *sqlite.SQLite
-	Logger  *golog.Logger
-	Session *discordgo.Session
-	Cron    *cron.Cron
-	Version string
+	Vk       *valkey.Client
+	Cfg      *config.Manager
+	Database *infra.Database
+	Logger   *golog.Logger
+	Session  *discordgo.Session
+	Cron     *cron.Cron
+	Version  string
 }
 
 func NewBot(path string, version string) *Bot {
@@ -71,9 +71,9 @@ func NewBot(path string, version string) *Bot {
 	}
 
 	/*
-		=== SQLite memory ===
+		=== SQL memory ===
 	*/
-	c, err := sqlite.NewSQL(conf.Current.Configuration.Database)
+	c, err := infra.OpenDatabase(conf.Current.Configuration.Database)
 	if err != nil {
 		logger.Error(err.Error())
 		os.Exit(1)
@@ -92,13 +92,13 @@ func NewBot(path string, version string) *Bot {
 	session.Identify.Intents = discordgo.IntentsGuildMessages | discordgo.IntentsMessageContent
 
 	b := Bot{
-		Vk:      vk,
-		Cfg:     conf,
-		Sql:     c,
-		Logger:  logger,
-		Session: session,
-		Cron:    cron.New(),
-		Version: version,
+		Vk:       vk,
+		Cfg:      conf,
+		Database: c,
+		Logger:   logger,
+		Session:  session,
+		Cron:     cron.New(),
+		Version:  version,
 	}
 
 	b.AddHandler(b.onReady)
@@ -146,7 +146,7 @@ func (b *Bot) AddFunc(interval string, fn func()) (cron.EntryID, error) {
 
 func (b *Bot) Run() {
 	defer b.Vk.Close()
-	defer b.Sql.Close()
+	defer b.Database.Close()
 	defer b.Cron.Stop()
 	defer b.Session.Close()
 

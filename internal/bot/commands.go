@@ -1,11 +1,16 @@
 package bot
 
 import (
+	"context"
+	"errors"
 	"fmt"
+	"strconv"
 	"strings"
 
 	"github.com/bwmarrin/discordgo"
-	_ "thekrew.app/seeker/internal/sql"
+	"gorm.io/gorm"
+	"gorm.io/gorm/clause"
+	"thekrew.app/seeker/internal/infra/model"
 )
 
 // Slash handle
@@ -157,19 +162,27 @@ func (b *Bot) onReply(s *discordgo.Session, i *discordgo.InteractionCreate, msg 
 
 // Ping
 func (b *Bot) onPing(s *discordgo.Session, i *discordgo.InteractionCreate) {
-	b.onReply(s, i, "pong")
+	if b.CanUse(i) {
+		b.onReply(s, i, "pong")
+	} else {
+		b.noPerms(s, i)
+	}
 }
 
 // List
 func (b *Bot) onList(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if b.CanUse(i) {
-		terms, _ := b.Sql.ReadBulkTerm()
+		ctx := context.Background()
+		terms, err := gorm.G[model.Term](b.Database.ORM).Find(ctx)
+		if err != nil {
+			b.Logger.ErrorWithStack(err)
+		}
 		str := ""
 		if len(terms) == 0 {
 			str = "No search terms configured"
 		} else {
 			for _, t := range terms {
-				str = str + " 1. " + t.Key + "\n"
+				str = str + " 1. " + t.Query + "\n"
 			}
 		}
 		b.onReply(s, i, str)
@@ -184,17 +197,19 @@ func (b *Bot) onAdd(s *discordgo.Session, i *discordgo.InteractionCreate) {
 	if b.CanUse(i) {
 		term := getArg(i)
 		res := "Adding \n"
+		var terms []model.Term
 		for t := range strings.SplitSeq(term, ",") {
 			b.Logger.Debugf("adding item -> %s", t)
-			err := b.Sql.CreateTerm(t)
-			if err != nil {
-				b.Logger.ErrorWithStack(err)
-				b.onReply(s, i, "Error has occured durring adding")
-				return
-			}
+			terms = append(terms, model.Term{Query: strings.ToLower(t)})
 			res = res + fmt.Sprintf("- **%s** \n", t)
 		}
 		res = res + "into search terms"
+		ctx := context.Background()
+		err := gorm.G[model.Term](b.Database.ORM).CreateInBatches(ctx, &terms, 100)
+		if err != nil {
+			b.Logger.ErrorWithStack(err)
+			res = "Error happend during topic insert"
+		}
 		b.onReply(s, i, res)
 	} else {
 		b.noPerms(s, i)
@@ -208,31 +223,26 @@ func (b *Bot) onRemove(s *discordgo.Session, i *discordgo.InteractionCreate) {
 		res := "Removing \n"
 		for t := range strings.SplitSeq(term, ",") {
 			if t == "*" {
-				terms, _ := b.Sql.ReadBulkTerm()
-				for _, tr := range terms {
-					b.Logger.Debugf("removing item -> %s", tr.Key)
-					err := b.Sql.DeleteTerm(tr.Key)
-					if err != nil {
-						b.Logger.ErrorWithStack(err)
-						b.onReply(s, i, "Error has occured durring removing")
-						return
-					}
-					res = res + fmt.Sprintf("- **%s** \n", tr.Key)
-				}
-				break
-			} else {
-				b.Logger.Debugf("item -> %s", t)
-				err := b.Sql.DeleteTerm(strings.ToLower(t))
+				ctx := context.Background()
+				affected, err := gorm.G[model.Term](b.Database.ORM).Where("1=1").Delete(ctx)
 				if err != nil {
 					b.Logger.ErrorWithStack(err)
 					b.onReply(s, i, "Error has occured durring removing")
 					return
-
+				}
+				b.onReply(s, i, "Affected "+strconv.Itoa(affected)+" rows")
+				break
+			} else {
+				ctx := context.Background()
+				_, err := gorm.G[model.Term](b.Database.ORM).Where("Query = ?", strings.ToLower(t)).Delete(ctx)
+				if err != nil {
+					b.Logger.ErrorWithStack(err)
+					b.onReply(s, i, "Error has occured durring removing")
+					return
 				}
 				res = res + fmt.Sprintf("- **%s** \n", t)
 			}
 		}
-
 		res = res + "from search terms"
 		b.onReply(s, i, res)
 	} else {
@@ -250,56 +260,68 @@ func (b *Bot) onFollow(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			return
 		}
 
-		err := b.Sql.CreateUser(u.ID)
+		ctx := context.Background()
+		user := model.User{Tag: u.ID}
+		err := gorm.G[model.User](b.Database.ORM, clause.OnConflict{DoNothing: true}).Create(ctx, &user)
 		if err != nil {
 			b.onReply(s, i, "Database has gone rogue and decided to throw error at you.")
 			b.Logger.ErrorWithStack(err)
 			return
 		}
 
-		user, err := b.Sql.ReadUser(u.ID)
-		if err != nil {
+		user, err = gorm.G[model.User](b.Database.ORM).Where("Tag = ?", u.ID).First(ctx)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
+			b.onReply(s, i, "User does not exists in DB.")
+			return
+		} else if err != nil {
 			b.onReply(s, i, "Database has gone rogue and decided to throw error at you.")
 			b.Logger.ErrorWithStack(err)
 			return
 		}
 
-		res := "You are now following \n"
-		if user != nil {
-			for t := range strings.SplitSeq(term, ",") {
-				if t == "*" {
-					terms, _ := b.Sql.ReadBulkTerm()
-					for _, tr := range terms {
-						b.Logger.Debugf("item -> %s", tr.Key)
-						err := b.Sql.CreateUserTerm(tr.Id, u.ID)
-						if err != nil {
-							b.onReply(s, i, "Database has gone rogue and decided to throw error at you.")
-							b.Logger.ErrorWithStack(err)
-							return
-						}
-						res = res + "- **" + tr.Key + "** \n"
-					}
-					break
-				} else {
-					b.Logger.Debugf("searching {%s}", t)
-					st, err := b.Sql.ReadTerm(t)
-					if err != nil {
-						b.onReply(s, i, "Topic not found")
-						return
-					}
-					b.Logger.Debugf("item -> %s", st.Key)
-					err = b.Sql.CreateUserTerm(st.Id, u.ID)
+		res := "Following topics were added to following list\n"
+		for t := range strings.SplitSeq(term, ",") {
+			if t == "*" {
+				terms, err := gorm.G[model.Term](b.Database.ORM).Find(ctx)
+				if err != nil {
+					b.Logger.ErrorWithStack(err)
+					b.onReply(s, i, "Database has gone rogue and decided to throw error at you.")
+					return
+				}
+				for _, tr := range terms {
+					b.Logger.Debugf("item -> %s", tr.Query)
+					err := b.Database.ORM.Model(&user).Association("Terms").Append(&tr)
 					if err != nil {
 						b.onReply(s, i, "Database has gone rogue and decided to throw error at you.")
 						b.Logger.ErrorWithStack(err)
 						return
 					}
-					res = res + "- **" + st.Key + "** \n"
-
+					res = res + "- **" + tr.Query + "** \n"
 				}
-			}
+				break
+			} else {
+				tr, err := gorm.G[model.Term](b.Database.ORM).Where("Query = ?", t).First(ctx)
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					res = res + "- **" + t + "** [Not found] \n"
+					continue
+				} else if err != nil {
+					b.onReply(s, i, "Database has gone rogue and decided to throw error at you.")
+					b.Logger.ErrorWithStack(err)
+					return
+				}
 
+				err = b.Database.ORM.Model(&user).Association("Terms").Append(&tr)
+				if err != nil {
+					b.onReply(s, i, "Database has gone rogue and decided to throw error at you.")
+					b.Logger.ErrorWithStack(err)
+					return
+				} else {
+					res = res + "- **" + tr.Query + "** \n"
+				}
+
+			}
 		}
+
 		res = res + "You will be pinged if search includes your topic"
 		b.onReply(s, i, res)
 	} else {
@@ -316,32 +338,34 @@ func (b *Bot) onFollows(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			return
 		}
 
-		user, err := b.Sql.ReadUser(u.ID)
-		if err != nil {
+		ctx := context.Background()
+		user, err := gorm.G[model.User](b.Database.ORM).Where("Tag = ?", u.ID).First(ctx)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			b.onReply(s, i, IdToTag(u.ID)+" WHO THE F*CK ARE YOU??? Sorry i just never saw you.")
+			return
+		} else if err != nil {
 			b.Logger.ErrorWithStack(err)
 			return
 		}
 
-		if user != nil {
-			info, err := b.Sql.ReadTermsByUser(u.ID)
-			if err != nil {
-				b.onReply(s, i, IdToTag(u.ID)+" You are'nt following any topic.")
-				b.Logger.ErrorWithStack(err)
-				return
-			}
-			if len(info.Terms) == 0 {
-				b.onReply(s, i, IdToTag(u.ID)+" You are'nt following any topic.")
-				return
-			}
-			res := "You are following \n"
-			for _, topic := range info.Terms {
-				res = res + "- **" + topic.Key + "**\n"
-			}
-			b.onReply(s, i, res)
-		} else {
-			b.onReply(s, i, IdToTag(u.ID)+" How the f*ck did you get here?? Like ... you f*cked my code so badly i got here.")
+		info, err := gorm.G[model.Term](b.Database.ORM).Preload("Users", func(db gorm.PreloadBuilder) error {
+			db.Where("Tag = ?", user.ID)
+			return nil
+		}).Find(ctx)
+		if err != nil {
+			b.onReply(s, i, IdToTag(u.ID)+" You are'nt following any topic.")
+			b.Logger.ErrorWithStack(err)
+			return
 		}
+		if len(info) == 0 {
+			b.onReply(s, i, IdToTag(u.ID)+" You are'nt following any topic.")
+			return
+		}
+		res := "You are following \n"
+		for _, topic := range info {
+			res = res + "- **" + topic.Query + "**\n"
+		}
+		b.onReply(s, i, res)
 	} else {
 		b.noPerms(s, i)
 	}
@@ -358,41 +382,43 @@ func (b *Bot) onUnfollow(s *discordgo.Session, i *discordgo.InteractionCreate) {
 			return
 		}
 
-		user, err := b.Sql.ReadUser(u.ID)
-		if err != nil {
+		ctx := context.Background()
+		user, err := gorm.G[model.User](b.Database.ORM).Where("Tag = ?", u.ID).First(ctx)
+		if errors.Is(err, gorm.ErrRecordNotFound) {
 			b.onReply(s, i, IdToTag(u.ID)+" WHO THE F*CK ARE YOU??? Sorry i just never saw you.")
+			return
+		} else if err != nil {
 			b.Logger.ErrorWithStack(err)
 			return
 		}
 
-		res := "You are no longer following these topics: \n"
-		if user != nil {
-			for t := range strings.SplitSeq(term, ",") {
-				if t == "*" {
-					terms, _ := b.Sql.ReadBulkTerm()
-					for _, tr := range terms {
-						b.Logger.Debugf("item -> %s", tr.Key)
-						err := b.Sql.DeleteUserTerm(tr.Key, u.ID)
-						if err != nil {
-							b.Logger.ErrorWithStack(err)
-							return
-						}
-						res = res + "- **" + tr.Key + "** \n"
-					}
-					break
-				} else {
-					b.Logger.Debugf("item -> %s", t)
-					err := b.Sql.DeleteUserTerm(t, u.ID)
-					if err != nil {
-						b.Logger.ErrorWithStack(err)
-						return
-					}
-					res = res + "- **" + t + "** \n"
-
+		res := "Following topics were removed from follow list\n"
+		for t := range strings.SplitSeq(term, ",") {
+			if t == "*" {
+				err = b.Database.ORM.Model(&user).Association("Terms").Clear()
+				res = "Followed topic are empty."
+				break
+			} else {
+				b.Logger.Debugf("item -> %s", t)
+				tr, err := gorm.G[model.Term](b.Database.ORM).Where("Query = ?", t).First(ctx)
+				if errors.Is(err, gorm.ErrRecordNotFound) {
+					res = res + "- **" + t + "** [Not found] \n"
+					continue
+				} else if err != nil {
+					b.Logger.ErrorWithStack(err)
+					return
 				}
-			}
+				err = b.Database.ORM.Model(&user).Association("Terms").Delete(&tr)
+				if err != nil {
+					b.Logger.ErrorWithStack(err)
+					b.onReply(s, i, "Database has gone rogue and decided to throw error at you.")
+					return
+				}
+				res = res + "- **" + tr.Query + "** \n"
 
+			}
 		}
+
 		b.onReply(s, i, res)
 	} else {
 		b.noPerms(s, i)

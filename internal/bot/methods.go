@@ -1,6 +1,7 @@
 package bot
 
 import (
+	"context"
 	"net/url"
 	"os"
 	"strings"
@@ -8,19 +9,20 @@ import (
 
 	"github.com/bwmarrin/discordgo"
 	"github.com/kopytkg/golog/v2"
+	"gorm.io/gorm"
 	"thekrew.app/seeker/internal/feed"
-	"thekrew.app/seeker/internal/sql"
+	"thekrew.app/seeker/internal/infra/model"
 )
 
 // Helpers
 
-func stringTerms(terms []sql.Term) string {
+func stringTerms(terms []model.Term) string {
 	s := ""
 	for i, t := range terms {
 		if i < len(terms)-1 {
-			s = s + t.Key + ","
+			s = s + t.Query + ","
 		} else {
-			s = s + t.Key
+			s = s + t.Query
 		}
 	}
 	return s
@@ -51,7 +53,8 @@ func (b *Bot) assableUri(terms string) string {
 }
 
 func (b *Bot) pullData() (*[]pullStruct, error) {
-	terms, err := b.Sql.ReadBulkTerm()
+	ctx := context.Background()
+	terms, err := gorm.G[model.Term](b.Database.ORM).Find(ctx)
 	if err != nil {
 		b.Logger.ErrorWithStack(err)
 	}
@@ -59,14 +62,14 @@ func (b *Bot) pullData() (*[]pullStruct, error) {
 	ret := []pullStruct{}
 
 	for _, term := range terms {
-		uri := b.assableUri(term.Key)
+		uri := b.assableUri(term.Query)
 		b.Logger.Debugf("uri: %s", uri)
 		query, err := feed.PullFeed(uri)
 		if err != nil {
 			return nil, err
 		}
 		ret = append(ret, pullStruct{
-			term: term.Key,
+			term: term.Query,
 			data: query.Data,
 		})
 	}
@@ -76,7 +79,7 @@ func (b *Bot) pullData() (*[]pullStruct, error) {
 // ------------ S1 - parse data to sql model
 type parseStruct struct {
 	term string
-	data []sql.CVEs
+	data []model.CVE
 }
 
 func stringToDate(date string, timezone string) time.Time {
@@ -101,12 +104,12 @@ func (b *Bot) parseData(pull *[]pullStruct) *[]parseStruct {
 	for _, p := range *pull {
 		par := parseStruct{
 			term: p.term,
-			data: []sql.CVEs{},
+			data: []model.CVE{},
 		}
 		for _, d := range p.data {
 			par.data = append(par.data,
-				sql.CVEs{
-					Id:          d.ID,
+				model.CVE{
+					ID:          d.ID,
 					Title:       d.Title,
 					Description: d.Description,
 					CreatedAt:   stringToDate(d.CreatedAt, tz),
@@ -131,7 +134,7 @@ func (b *Bot) filterData(parsed *[]parseStruct) *[]parseStruct {
 	for _, p := range *parsed {
 		par := parseStruct{
 			term: p.term,
-			data: []sql.CVEs{},
+			data: []model.CVE{},
 		}
 
 		for _, d := range p.data {
@@ -158,10 +161,15 @@ func (b *Bot) SearchCVEs() {
 	parsed := b.parseData(pulls)     // Stage 1 - parse data to SQL schema format
 	filtered := b.filterData(parsed) // Stage 2 - filter data so they are max 80h old
 
-	/*
-		ctx := context.Background()
-		var clean []feed.Data
-		for _, cve := range data {
+	ctx := context.Background()
+	var clean []parseStruct
+
+	for _, bundle := range *filtered {
+		p := parseStruct{
+			term: bundle.term,
+			data: []model.CVE{},
+		}
+		for _, cve := range bundle.data {
 			exists, err := b.Vk.Exists(ctx, cve.ID)
 			if err != nil {
 				b.Logger.Errorf("%s", err)
@@ -169,25 +177,29 @@ func (b *Bot) SearchCVEs() {
 			if !exists {
 				b.Logger.Debugf("NO [%s]", cve.ID)
 
-				err = b.Vk.Set(ctx, cve.ID, cve.ToString(), b.Cfg.Current.Cache.Expiration)
+				err = b.Vk.Set(ctx, cve.ID, bundle.term, b.Cfg.Current.Cache.Expiration)
 				if err != nil {
 					b.Logger.Errorf("%s", err)
 				}
-				clean = append(clean, cve)
+				p.data = append(p.data, cve)
 			} else {
 				b.Logger.Debugf("Exists [%s]", cve.ID)
 			}
 		}
-	*/
+		clean = append(clean, p)
+	}
 
-	for _, d := range *filtered {
+	for _, d := range clean {
 		var tags []string
 		b.Logger.Debugf("Seacher {%s}", d.term)
-		u, _ := b.Sql.ReadUsersByTerm(d.term)
+		u, _ := gorm.G[model.User](b.Database.ORM).Preload("Terms", func(db gorm.PreloadBuilder) error {
+			db.Where("Query = ?", d.term)
+			return nil
+		}).Find(ctx)
 		if u != nil {
-			for _, user := range u.Users {
-				tags = append(tags, user.Tag)
-				b.Logger.Debugf("tag {%s}", user.Tag)
+			for _, user := range u {
+				tags = append(tags, IdToTag(user.Tag))
+				b.Logger.Debugf("tag {%s}", IdToTag(user.Tag))
 			}
 		}
 
