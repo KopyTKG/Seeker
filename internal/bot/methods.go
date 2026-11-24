@@ -153,13 +153,21 @@ func (b *Bot) filterData(parsed *[]parseStruct) *[]parseStruct {
 }
 
 func (b *Bot) SearchCVEs() {
+	b.Logger.Info("Pulling data from API")
+	// =================================================
 	pulls, err := b.pullData() // Stage 0 - get data
 	if err != nil {
 		b.Logger.ErrorWithStack(err)
 		os.Exit(1)
 	}
-	parsed := b.parseData(pulls)     // Stage 1 - parse data to SQL schema format
+	// =================================================
+	parsed := b.parseData(pulls) // Stage 1 - parse data to SQL schema format
+	// =================================================
 	filtered := b.filterData(parsed) // Stage 2 - filter data so they are max 80h old
+	// =================================================
+	// Missing Stage 3 - filter DB based on update time and current time with 80h diff (delete older)
+	// Missing Stage 4 - save into DB
+	// Missing Stage 5 - send messages
 
 	ctx := context.Background()
 	var clean []parseStruct
